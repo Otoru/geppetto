@@ -3,7 +3,7 @@
 // health service with fx, then keeps the process alive until its context is
 // cancelled or serving fails. The command is stateless with respect to NPCs:
 // all decision state arrives in each RPC, and engine scoring remains in
-// internal/engine.
+// github.com/vitorhugo/geppetto.
 //
 // # Invocation contract
 //

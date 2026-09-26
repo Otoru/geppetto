@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package geppetto.v1;
 
-option go_package = "github.com/vitorhugo/geppetto/gen/go/geppetto/v1;gepv1";
+option go_package = "github.com/vitorhugo/geppetto/internal/gen/go/geppetto/v1;gepv1";
 
 // DecisionService is stateless: every decision carries the agent state needed
 // for scoring. BatchDecide is the production path; Decide is useful for tuning.
@@ -110,7 +110,7 @@ message DecideResponse {
 // Action references must index batch.action_ids. The remote form intentionally
 // does not carry arbitrary queued actions, personality, contexts, resources,
 // capabilities, custom updater functions, provider state/occupants, or action
-// preconditions/costs: those features remain available through engine.Advance
+// preconditions/costs: those features remain available through geppetto.Advance
 // in-process only.
 message BatchTickRequest {
   BatchDecideRequest batch = 1;

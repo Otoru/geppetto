@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/vitorhugo/geppetto/internal/config"
 	"github.com/vitorhugo/geppetto/internal/logging"
-	"github.com/vitorhugo/geppetto/internal/server"
+	server "github.com/vitorhugo/geppetto/internal/service"
 	"github.com/vitorhugo/geppetto/internal/transport"
 	"go.uber.org/fx"
 	"go.uber.org/multierr"
