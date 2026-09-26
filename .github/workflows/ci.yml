@@ -23,7 +23,7 @@ jobs:
       - name: Verify generated bindings
         run: |
           make generate
-          git diff --exit-code -- gen
+          git diff --exit-code -- internal/gen
       - name: Buf lint and breaking checks
         run: |
           buf lint
