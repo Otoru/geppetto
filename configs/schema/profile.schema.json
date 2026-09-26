@@ -1,0 +1,198 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "./profile.schema.json",
+    "title": "Perfil de decisão do geppetto",
+    "description": "Perfil carregado uma vez no startup pelo engine.LoadProfile: define as considerações (na ordem usada pelos arrays consideration_values do batch) e os parâmetros de tuning compartilhados por um lote de decisão.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["name"],
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "description": "Caminho para este schema; usado apenas por editores para validação enquanto se digita. O loader Go ignora campos desconhecidos, então a chave não afeta o carregamento."
+        },
+        "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Identificador do perfil, pelo qual as requisições BatchDecide/Decide o referenciam (profile_id). O loader rejeita perfil sem nome."
+        },
+        "considerations": {
+            "type": "array",
+            "description": "Considerações do perfil. A ORDEM desta lista é a ordem dos valores em consideration_values no payload BatchDecide; reordenar quebra o significado dos batches existentes.",
+            "items": { "$ref": "#/$defs/consideration" }
+        },
+        "tuning": {
+            "$ref": "#/$defs/tuning"
+        }
+    },
+    "$defs": {
+        "consideration": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Sinal escalar normalizado que descreve o estado interno do NPC ou sua leitura do mundo (fome, ameaça, munição...). O motor trata todas de forma uniforme; o que muda é o updater.",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Nome da consideração, referenciado nos deltas dos anúncios e nos arrays do batch. Convenção da spec: SCREAMING_SNAKE_CASE (ex.: HUNGER, THREAT, AMMO); conjunto aberto, extensível por jogo."
+                },
+                "value": {
+                    "type": "number",
+                    "description": "Valor inicial quando o perfil é usado para simulação local. Convenção: +100 = ótimo/saciado/seguro, -100 = colapso. Em produção o valor real chega a cada requisição no payload; o loader não aplica default (omisso = 0)."
+                },
+                "min": {
+                    "type": "number",
+                    "description": "Limite inferior do clamp aplicado a cada tick. Convenção da spec: -100; considerações unipolares (ex.: AMMO) usam 0. Sem default no loader: se omitido, fica 0."
+                },
+                "max": {
+                    "type": "number",
+                    "description": "Limite superior do clamp e teto da saturação (promessa além do teto não vale). Convenção da spec: +100. Sem default no loader: se omitido, fica 0, o que zera o ganho esperado de qualquer ação."
+                },
+                "updater": {
+                    "$ref": "#/$defs/updater"
+                },
+                "base_weight": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 10,
+                    "description": "Prioridade relativa intrínseca da consideração (sobrevivência > conforto). Multiplica a saída da curva de resposta para formar a pressão. Faixa da spec: [0, 10]."
+                },
+                "critical_threshold": {
+                    "type": "number",
+                    "minimum": -100,
+                    "maximum": 100,
+                    "description": "Abaixo deste valor a consideração é crítica e pode preemptar a ação em curso. Spec sugere [-90, -10] para considerações bipolares; unipolares podem usar valor positivo (ex.: AMMO com 10)."
+                },
+                "response_curve": {
+                    "$ref": "#/$defs/responseCurve"
+                }
+            }
+        },
+        "updater": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Regra que evolui o valor da consideração a cada tick. ATENÇÃO: um kind fora do enum é aceito silenciosamente pelo loader e vira no-op (a consideração nunca se move) — o enum abaixo é a proteção contra isso.",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "linear_decay",
+                        "linear_regen",
+                        "event_driven",
+                        "perception_driven",
+                        "relationship_driven",
+                        "context_aggregate"
+                    ],
+                    "description": "Dinâmica da consideração: linear_decay/linear_regen movem ±rate por hora de jogo; event_driven só muda por deltas de ações; perception_driven lê world.Perception; relationship_driven lê world.Relationships; context_aggregate lê world.ContextValues. Valores extraídos das constantes UpdaterKind em internal/engine/types.go."
+                },
+                "rate": {
+                    "type": "number",
+                    "description": "Taxa em pontos por hora de jogo; usada apenas por linear_decay e linear_regen (ignorada pelos demais kinds). Faixa típica da spec: 3–20 pts/h. Sem default no loader: omitida, vale 0 (consideração parada)."
+                }
+            }
+        },
+        "responseCurve": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Função que converte o valor bruto da consideração em pressão (peso) na utilidade. Um kind fora do enum faz ResponseCurve.Evaluate retornar 0 — a consideração deixa de influenciar decisões sem nenhum erro.",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "enum": ["convex", "linear", "step", "logistic"],
+                    "description": "Forma da curva: convex dispara perto do mínimo (urgência); linear é proporcional; step alterna no threshold; logistic transiciona suavemente em torno do midpoint. Valores extraídos das constantes ResponseCurveKind em internal/engine/types.go."
+                },
+                "exponent": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 4,
+                    "description": "Expoente da curva convex; quanto maior, mais a pressão se concentra perto do fundo. Se omitido ou 0, vale o response_curve_exponent do tuning do perfil (default 2). Faixa da spec: [1, 4]."
+                },
+                "threshold": {
+                    "type": "number",
+                    "description": "Ponto de corte da curva step: value < threshold produz a pressão 'below', senão 'above'."
+                },
+                "below": {
+                    "type": "number",
+                    "description": "Pressão retornada pela curva step quando o valor está abaixo do threshold."
+                },
+                "above": {
+                    "type": "number",
+                    "description": "Pressão retornada pela curva step quando o valor está no threshold ou acima."
+                },
+                "slope": {
+                    "type": "number",
+                    "description": "Inclinação da curva logistic em torno do midpoint. Se omitido ou 0, o motor usa 1."
+                },
+                "midpoint": {
+                    "type": "number",
+                    "description": "Ponto de inflexão da curva logistic: valor em que a pressão cruza 0,5."
+                }
+            }
+        },
+        "tuning": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Parâmetros de decisão do perfil. Campos omitidos valem 0 no loader; o motor substitui 0 pelos defaults de engine.DefaultTuning() nos campos que tratam 0 como 'não configurado' (indicados em cada description).",
+            "properties": {
+                "response_curve_exponent": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 4,
+                    "description": "Expoente default das curvas convex do perfil (considerações podem sobrescrever via response_curve.exponent). 0 = default 2. Faixa da spec: [1, 4]."
+                },
+                "W_PRIORITY": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 20,
+                    "description": "Peso do intrinsic_priority dos anúncios na utilidade. 0 = default 5. Faixa da spec: [0, 20]."
+                },
+                "DISTANCE_REFERENCE": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 50,
+                    "description": "Distância (unidades de mundo, tipicamente metros) em que o multiplicador de distância cai para 0,5; decaimento hiperbólico 1/(1 + d/ref). 0 ou omitido = default 10. Faixa da spec: [2, 50]."
+                },
+                "SELECTION_TOP_K": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "Quantos dos candidatos mais bem pontuados entram no sorteio final. 0 ou omitido = default 3. Faixa da spec: [1, 10]."
+                },
+                "SELECTION_TEMPERATURE": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 5,
+                    "description": "Temperatura do softmax: maior = escolhas mais aleatórias; próxima de 0 = quase argmax. 0 ou omitido = default 1,0. Faixa da spec: [0,1, 5]; por gênero, 0,3 (tático) a 1,5 (social)."
+                },
+                "preemption_margin": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 3,
+                    "description": "Fator pelo qual a utilidade de um candidato urgente deve superar a da ação em curso para interrompê-la. Maior = NPC 'teimoso'; menor = reativo. 0 = default 1,5. Faixa da spec: [1,0, 3,0]."
+                },
+                "convention_break_probability": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Probabilidade de o NPC ignorar convenções sociais/táticas, gerando situações inesperadas. Default da spec: 0,15."
+                },
+                "perception_noise": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 30,
+                    "description": "Desvio-padrão (σ, em pontos) do ruído aplicado a considerações perception_driven; produz erros críveis de leitura do mundo. Default da spec: 5. Faixa: [0, 30]."
+                },
+                "full_tick_hours": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "description": "Duração do tick detalhado (nível FULL) em horas de jogo. Default do motor: 1/60 (1 minuto de jogo)."
+                },
+                "simplified_tick_hours": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "description": "Duração do tick agregado (nível SIMPLIFIED) em horas de jogo, para NPCs longe do jogador. Default do motor: 1 hora de jogo."
+                }
+            }
+        }
+    }
+}

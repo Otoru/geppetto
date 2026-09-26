@@ -1,4 +1,5 @@
 {
+    "$schema": "./schema/profile.schema.json",
     "name": "open-world-rpg",
     "considerations": [
         {
