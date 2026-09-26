@@ -80,7 +80,22 @@ func Validate(profile geppetto.Profile) error {
 	if profile.Name == "" {
 		return fmt.Errorf("%w: name is required", ErrInvalidProfile)
 	}
+	for _, consideration := range profile.Considerations {
+		if consideration.ResponseCurve.Kind != "" && !validResponseCurveKind(consideration.ResponseCurve.Kind) {
+			return fmt.Errorf("%w: invalid response curve kind %q; valid kinds: convex, linear, step, logistic", ErrInvalidProfile, consideration.ResponseCurve.Kind)
+		}
+		if consideration.Updater.Kind != "" && !validUpdaterKind(consideration.Updater.Kind) {
+			return fmt.Errorf("%w: invalid updater kind %q; valid kinds: linear_decay, linear_regen, event_driven, perception_driven, relationship_driven, context_aggregate", ErrInvalidProfile, consideration.Updater.Kind)
+		}
+	}
 	return nil
+}
+
+func validResponseCurveKind(kind geppetto.ResponseCurveKind) bool {
+	return kind == geppetto.Convex || kind == geppetto.Linear || kind == geppetto.Step || kind == geppetto.Logistic
+}
+func validUpdaterKind(kind geppetto.UpdaterKind) bool {
+	return kind == geppetto.LinearDecay || kind == geppetto.LinearRegen || kind == geppetto.EventDriven || kind == geppetto.PerceptionDriven || kind == geppetto.RelationshipDriven || kind == geppetto.ContextAggregate
 }
 
 func decode(data []byte) (geppetto.Profile, error) {
@@ -91,5 +106,6 @@ func decode(data []byte) (geppetto.Profile, error) {
 	if err := Validate(profile); err != nil {
 		return geppetto.Profile{}, err
 	}
+	profile.Tuning = profile.Tuning.WithDefaults()
 	return profile, nil
 }

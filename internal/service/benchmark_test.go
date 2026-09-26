@@ -11,19 +11,14 @@ import (
 
 func benchmarkBatch() *gepv1.BatchDecideRequest {
 	agents := 1_000
-	request := &gepv1.BatchDecideRequest{
-		ProfileId: "social-life", ProviderIds: []string{"bed"}, ProviderPositionsX: []float64{0}, ProviderPositionsY: []float64{0}, ProviderPositionsZ: []float64{0}, ProviderCapacities: []uint32{1_000},
-		ActionProviderIndices: []uint32{0}, ActionIds: []string{"rest"}, ActionEstimatedDurations: []float64{1}, ActionDomains: []string{""}, ActionIntrinsicPriorities: []float64{0}, ActionAdvertisementRadii: []float64{10}, ActionTagOffsets: []uint32{0, 0}, ActionDeltaOffsets: []uint32{0, 1}, DeltaConsiderationIds: []string{"ENERGY"}, DeltaValues: []float64{80},
-	}
+	builder := newBatchRequest("social-life", 0)
+	provider := builder.AddProvider("bed", engine.Position{}, 1_000)
+	builder.AddAction(provider, engine.AdvertisedAction{ActionID: "rest", EstimatedDuration: 1, AdvertisementRadius: 10, Deltas: map[string]float64{"ENERGY": 80}})
 	for index := 0; index < agents; index++ {
-		request.AgentIds = append(request.AgentIds, "agent")
-		request.PositionsX = append(request.PositionsX, 0)
-		request.PositionsY = append(request.PositionsY, 0)
-		request.PositionsZ = append(request.PositionsZ, 0)
 		// social-life has three considerations, in profile declaration order.
-		request.ConsiderationValues = append(request.ConsiderationValues, 0, -50, -50)
+		builder.AddAgent("agent", engine.Position{}, []float64{0, -50, -50})
 	}
-	return request
+	return builder.Build()
 }
 
 func BenchmarkBatchProtoEncode(b *testing.B) {

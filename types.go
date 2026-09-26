@@ -284,6 +284,41 @@ func DefaultTuning() Tuning {
 	}
 }
 
+// WithDefaults resolves omitted tuning values to the reference calibration.
+// Profile loading calls it once; SDK construction also applies it for callers
+// that construct a Profile or Tuning directly in Go.
+func (tuning Tuning) WithDefaults() Tuning {
+	defaults := DefaultTuning()
+	if tuning.ResponseCurveExponent == 0 {
+		tuning.ResponseCurveExponent = defaults.ResponseCurveExponent
+	}
+	if tuning.WPriority == 0 {
+		tuning.WPriority = defaults.WPriority
+	}
+	if tuning.DistanceReference <= 0 {
+		tuning.DistanceReference = defaults.DistanceReference
+	}
+	if tuning.SelectionTopK <= 0 {
+		tuning.SelectionTopK = defaults.SelectionTopK
+	}
+	if tuning.SelectionTemperature <= 0 {
+		tuning.SelectionTemperature = defaults.SelectionTemperature
+	}
+	if tuning.ReconciliationTopK <= 0 {
+		tuning.ReconciliationTopK = defaults.ReconciliationTopK
+	}
+	if tuning.PreemptionMargin == 0 {
+		tuning.PreemptionMargin = defaults.PreemptionMargin
+	}
+	if tuning.FullTickHours <= 0 {
+		tuning.FullTickHours = defaults.FullTickHours
+	}
+	if tuning.SimplifiedTickHours <= 0 {
+		tuning.SimplifiedTickHours = defaults.SimplifiedTickHours
+	}
+	return tuning
+}
+
 // AggregatedEvent records a coarse simulation event for a simplified agent.
 type AggregatedEvent struct {
 	Kind   string

@@ -37,6 +37,7 @@ func newOptions(configurers []Option) options {
 	if !configured.hasTuning {
 		configured.tuning = configured.profile.Tuning
 	}
+	configured.tuning = configured.tuning.WithDefaults()
 	return configured
 }
 

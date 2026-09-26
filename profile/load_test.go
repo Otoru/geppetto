@@ -52,6 +52,16 @@ func TestLoadFS(t *testing.T) {
 	assert.Equal(t, "test", loaded.Name)
 }
 
+func TestLoadFSRejectsUnknownResponseCurveKind(t *testing.T) {
+	profiles := fstest.MapFS{"profiles/test.json": &fstest.MapFile{Data: []byte(`{"name":"test","considerations":[{"id":"HUNGER","response_curve":{"kind":"parabolica"}}]}`)}}
+
+	_, err := LoadFS(profiles, "profiles/test.json")
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrInvalidProfile)
+	assert.ErrorContains(t, err, `invalid response curve kind "parabolica"`)
+}
+
 func TestLoadDirRejectsInvalidDocuments(t *testing.T) {
 	directory := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(directory, "broken.json"), []byte("{"), 0o600))

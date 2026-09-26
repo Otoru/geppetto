@@ -98,11 +98,7 @@ func contextMultiplier(agent Agent, action AdvertisedAction) float64 {
 }
 
 func distanceMultiplier(agent Agent, provider AffordanceProvider, tuning Tuning) float64 {
-	distanceScale := tuning.DistanceReference
-	if distanceScale <= 0 {
-		distanceScale = distanceReference
-	}
-	return 1 / (1 + agent.Position.Distance(provider.Position)/distanceScale)
+	return 1 / (1 + agent.Position.Distance(provider.Position)/tuning.DistanceReference)
 }
 
 func weightedCost(agent Agent, action AdvertisedAction) float64 {
@@ -117,8 +113,9 @@ func weightedCost(agent Agent, action AdvertisedAction) float64 {
 // ScoreAction scores an advertised promise. Personality, context, and distance scale benefits;
 // costs remain penalties so a cheap action cannot become expensive through a positive modifier.
 func ScoreAction(agent Agent, provider AffordanceProvider, action AdvertisedAction, tuning Tuning) float64 {
+	tuning = tuning.WithDefaults()
 	considerationBenefit := neutralSum
-	defaultResponseCurveExponent := responseCurveExponent(tuning)
+	defaultResponseCurveExponent := tuning.ResponseCurveExponent
 	for considerationID, delta := range action.Deltas {
 		consideration, exists := agent.Considerations[considerationID]
 		if exists {
@@ -127,11 +124,7 @@ func ScoreAction(agent Agent, provider AffordanceProvider, action AdvertisedActi
 		}
 	}
 
-	priorityWeight := tuning.WPriority
-	if priorityWeight == 0 {
-		priorityWeight = wPriority
-	}
-	considerationBenefit += action.IntrinsicPriority * priorityWeight
+	considerationBenefit += action.IntrinsicPriority * tuning.WPriority
 
 	return considerationBenefit*
 		personalityMultiplier(agent, action)*
@@ -179,6 +172,7 @@ func actionSaturated(action AdvertisedAction) bool {
 
 // SelectAction selects one of the highest-scoring candidates with softmax.
 func SelectAction(agent Agent, providers []AffordanceProvider, tuning Tuning, rng *rand.Rand) *ActionInstance {
+	tuning = tuning.WithDefaults()
 	var candidates []Candidate
 	if tuning.PerceptionNoise > 0 {
 		candidates = Candidates(perceivedAgent(agent, tuning.PerceptionNoise, rng), providers, tuning)
@@ -189,11 +183,7 @@ func SelectAction(agent Agent, providers []AffordanceProvider, tuning Tuning, rn
 		return nil
 	}
 
-	temperature := tuning.SelectionTemperature
-	if temperature <= 0 {
-		temperature = selectionTemperature
-	}
-	selected := sampleSoftmax(topCandidates(candidates, tuning.SelectionTopK), temperature, rng)
+	selected := sampleSoftmax(topCandidates(candidates, tuning.SelectionTopK), tuning.SelectionTemperature, rng)
 	if tuning.ConventionBreakProbability > 0 && shouldBreakConvention(tuning.ConventionBreakProbability, rng) {
 		if contrarian, ok := conventionBreakingCandidate(candidates, rng); ok {
 			selected = contrarian
@@ -244,9 +234,6 @@ func conventionBreakingCandidate(candidates []Candidate, rng *rand.Rand) (Candid
 
 func topCandidates(candidates []Candidate, configuredTopK int) []Candidate {
 	topK := configuredTopK
-	if topK <= 0 {
-		topK = selectionTopK
-	}
 	if topK > len(candidates) {
 		topK = len(candidates)
 	}

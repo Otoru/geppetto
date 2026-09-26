@@ -75,7 +75,7 @@ func NewDecisionServer(profiles *ProfileCache) *DecisionServer {
 		profiles: profiles,
 		workers:  runtime.GOMAXPROCS(0),
 		agents: sync.Pool{New: func() any {
-			return &engine.Agent{}
+			return &engine.Agent{Considerations: make(map[string]engine.Consideration)}
 		}},
 		log: zap.NewNop(),
 	}
@@ -232,7 +232,9 @@ func (s *DecisionServer) rankOneWithDecider(request *gepv1.BatchDecideRequest, p
 
 	preferences[agentIndex] = decider.Rank(*agent, providers, request.Seed+uint64(agentIndex))
 
-	*agent = engine.Agent{}
+	considerations := agent.Considerations
+	clear(considerations)
+	*agent = engine.Agent{Considerations: considerations}
 	s.agents.Put(agent)
 }
 
@@ -243,17 +245,21 @@ func populateAgent(agent *engine.Agent, request *gepv1.BatchDecideRequest, profi
 		Y: request.PositionsY[agentIndex],
 		Z: request.PositionsZ[agentIndex],
 	}
-	agent.Considerations = considerationValuesForAgent(request, profile.Considerations, agentIndex)
+	if agent.Considerations == nil {
+		agent.Considerations = make(map[string]engine.Consideration, len(profile.Considerations))
+	}
+	populateConsiderationValues(agent.Considerations, request, profile.Considerations, agentIndex)
 }
 
-func considerationValuesForAgent(request *gepv1.BatchDecideRequest, profileConsiderations []engine.Consideration, agentIndex int) map[string]engine.Consideration {
-	considerations := make(map[string]engine.Consideration, len(profileConsiderations))
+func populateConsiderationValues(considerations map[string]engine.Consideration, request *gepv1.BatchDecideRequest, profileConsiderations []engine.Consideration, agentIndex int) {
+	if considerations == nil {
+		panic("consideration map must be initialized")
+	}
 	valueOffset := agentIndex * len(profileConsiderations)
 	for considerationOffset, consideration := range profileConsiderations {
 		consideration.Value = request.ConsiderationValues[valueOffset+considerationOffset]
 		considerations[consideration.ID] = consideration
 	}
-	return considerations
 }
 
 func writeDecision(response *gepv1.BatchDecideResponse, agentIndex int, selected *engine.ActionInstance, actions []engine.AdvertisedAction, providers []engine.AffordanceProvider, actionProviderIndices []uint32) {

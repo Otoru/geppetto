@@ -31,6 +31,7 @@ type TickResult struct {
 // the elapsed interval while a newly started action begins contributing on the
 // following interval.
 func Advance(agent *Agent, profile Profile, providers []AffordanceProvider, request TickRequest, rng *rand.Rand) TickResult {
+	profile.Tuning = profile.Tuning.WithDefaults()
 	expireNarrativeCommitments(agent, request.NowHours)
 
 	switch targetSimulationLevel(agent.SimulationLevel, request.TargetLevel) {
@@ -41,15 +42,15 @@ func Advance(agent *Agent, profile Profile, providers []AffordanceProvider, requ
 			event.AtHour = request.NowHours
 			ApplyAggregatedEvent(agent, event)
 		}
-		return TickResult{SimulationLevel: Simplified, ElapsedHours: simplifiedTickHours(profile.Tuning)}
+		return TickResult{SimulationLevel: Simplified, ElapsedHours: profile.Tuning.SimplifiedTickHours}
 	default:
 		if agent.SimulationLevel == Simplified {
 			TransitionToFull(agent, request.NowHours, profile.AggregatedEventEffects)
 		} else {
 			agent.SimulationLevel = Full
 		}
-		Tick(agent, providers, request.World, fullTickHours(profile.Tuning), profile.Tuning, rng)
-		return TickResult{SimulationLevel: Full, ElapsedHours: fullTickHours(profile.Tuning)}
+		Tick(agent, providers, request.World, profile.Tuning.FullTickHours, profile.Tuning, rng)
+		return TickResult{SimulationLevel: Full, ElapsedHours: profile.Tuning.FullTickHours}
 	}
 }
 
@@ -63,23 +64,10 @@ func targetSimulationLevel(current, requested SimulationLevel) SimulationLevel {
 	return Full
 }
 
-func fullTickHours(tuning Tuning) float64 {
-	if tuning.FullTickHours > 0 {
-		return tuning.FullTickHours
-	}
-	return fullTickHoursDefault
-}
-
-func simplifiedTickHours(tuning Tuning) float64 {
-	if tuning.SimplifiedTickHours > 0 {
-		return tuning.SimplifiedTickHours
-	}
-	return simplifiedTickHoursDefault
-}
-
 // CheckPreemption replaces the current action when a critical consideration
 // makes the best available action valuable enough to clear the configured margin.
 func CheckPreemption(agent *Agent, providers []AffordanceProvider, tuning Tuning, rng *rand.Rand) bool {
+	tuning = tuning.WithDefaults()
 	if agent.CurrentAction == nil {
 		return false
 	}
@@ -94,11 +82,7 @@ func CheckPreemption(agent *Agent, providers []AffordanceProvider, tuning Tuning
 		return false
 	}
 
-	preemptionMargin := tuning.PreemptionMargin
-	if preemptionMargin == 0 {
-		preemptionMargin = preemptionMarginDefault
-	}
-	if bestAction.ContinuationUtility > preemptionMargin*agent.CurrentAction.ContinuationUtility {
+	if bestAction.ContinuationUtility > tuning.PreemptionMargin*agent.CurrentAction.ContinuationUtility {
 		agent.CurrentAction = bestAction
 		return true
 	}
