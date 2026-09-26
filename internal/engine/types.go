@@ -229,12 +229,16 @@ type Tuning struct {
 	// ReconciliationTopK caps how many ordered candidates each agent retains
 	// for contention resolution: the stochastic first pick plus
 	// utility-ordered fallbacks.
-	ReconciliationTopK         int     `json:"RECONCILIATION_TOP_K"`
-	PreemptionMargin           float64 `json:"preemption_margin"`
+	ReconciliationTopK int     `json:"RECONCILIATION_TOP_K"`
+	PreemptionMargin   float64 `json:"preemption_margin"`
+	// ConventionBreakProbability replaces the normal choice with a strictly
+	// lower-utility eligible action when its probability succeeds.
 	ConventionBreakProbability float64 `json:"convention_break_probability"`
-	PerceptionNoise            float64 `json:"perception_noise"`
-	FullTickHours              float64 `json:"full_tick_hours"`
-	SimplifiedTickHours        float64 `json:"simplified_tick_hours"`
+	// PerceptionNoise is the standard deviation of Gaussian noise applied to
+	// perception-driven considerations while scoring a decision.
+	PerceptionNoise     float64 `json:"perception_noise"`
+	FullTickHours       float64 `json:"full_tick_hours"`
+	SimplifiedTickHours float64 `json:"simplified_tick_hours"`
 }
 
 // DefaultTuning returns the specification's default tuning values.
@@ -247,8 +251,8 @@ func DefaultTuning() Tuning {
 		SelectionTemperature:       SELECTION_TEMPERATURE,
 		ReconciliationTopK:         RECONCILIATION_TOP_K,
 		PreemptionMargin:           PREEMPTION_MARGIN,
-		ConventionBreakProbability: .15,
-		PerceptionNoise:            5,
+		ConventionBreakProbability: 0,
+		PerceptionNoise:            0,
 		FullTickHours:              1.0 / 60,
 		SimplifiedTickHours:        1,
 	}

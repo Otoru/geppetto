@@ -179,23 +179,67 @@ func actionSaturated(action AdvertisedAction) bool {
 
 // SelectAction selects one of the highest-scoring candidates with softmax.
 func SelectAction(agent Agent, providers []AffordanceProvider, tuning Tuning, rng *rand.Rand) *ActionInstance {
-	candidates := Candidates(agent, providers, tuning)
+	var candidates []Candidate
+	if tuning.PerceptionNoise > 0 {
+		candidates = Candidates(perceivedAgent(agent, tuning.PerceptionNoise, rng), providers, tuning)
+	} else {
+		candidates = Candidates(agent, providers, tuning)
+	}
 	if len(candidates) == 0 {
 		return nil
 	}
 
-	candidates = topCandidates(candidates, tuning.SelectionTopK)
 	temperature := tuning.SelectionTemperature
 	if temperature <= 0 {
 		temperature = SELECTION_TEMPERATURE
 	}
-
-	selected := sampleSoftmax(candidates, temperature, rng)
+	selected := sampleSoftmax(topCandidates(candidates, tuning.SelectionTopK), temperature, rng)
+	if tuning.ConventionBreakProbability > 0 && shouldBreakConvention(tuning.ConventionBreakProbability, rng) {
+		if contrarian, ok := conventionBreakingCandidate(candidates, rng); ok {
+			selected = contrarian
+		}
+	}
 	return &ActionInstance{
 		Action:              selected.Action,
 		ProviderID:          selected.Provider.ID,
 		ContinuationUtility: selected.Utility,
 	}
+}
+
+func perceivedAgent(agent Agent, noise float64, rng *rand.Rand) Agent {
+	perceived := agent
+	perceived.Considerations = make(map[string]Consideration, len(agent.Considerations))
+	considerationIDs := make([]string, 0, len(agent.Considerations))
+	for considerationID, consideration := range agent.Considerations {
+		perceived.Considerations[considerationID] = consideration
+		considerationIDs = append(considerationIDs, considerationID)
+	}
+	sort.Strings(considerationIDs)
+	for _, considerationID := range considerationIDs {
+		consideration := perceived.Considerations[considerationID]
+		if consideration.Updater.Kind != PerceptionDriven {
+			continue
+		}
+		consideration.Value = clamp(consideration.Value+rng.NormFloat64()*noise, consideration.Min, consideration.Max)
+		perceived.Considerations[considerationID] = consideration
+	}
+	return perceived
+}
+
+func shouldBreakConvention(probability float64, rng *rand.Rand) bool {
+	return probability > 0 && rng.Float64() < probability
+}
+
+func conventionBreakingCandidate(candidates []Candidate, rng *rand.Rand) (Candidate, bool) {
+	bestUtility := candidates[0].Utility
+	firstLowerUtility := 0
+	for firstLowerUtility < len(candidates) && candidates[firstLowerUtility].Utility >= bestUtility {
+		firstLowerUtility++
+	}
+	if firstLowerUtility == len(candidates) {
+		return Candidate{}, false
+	}
+	return candidates[firstLowerUtility+rng.IntN(len(candidates)-firstLowerUtility)], true
 }
 
 func topCandidates(candidates []Candidate, configuredTopK int) []Candidate {

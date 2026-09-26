@@ -50,7 +50,7 @@
 // DefaultTuning supplies the reference calibration: convex exponent 2,
 // intrinsic-priority weight 5, distance reference 10 world units, selection
 // TopK 3, temperature 1, reconciliation TopK 5, preemption margin 1.5,
-// convention-break probability 0.15, perception noise 5, a FULL tick of one
+// convention-break probability 0, perception noise 0, a FULL tick of one
 // minute of game time, and a SIMPLIFIED tick of one hour. For parameters that
 // use zero as "not configured", zero falls back to these defaults; it is not a
 // way to disable priority or stochastic selection. In particular, a profile
@@ -148,8 +148,14 @@
 // so that contention resolution does not silently turn the system back into
 // argmax. Commitment to a current action, limited advertisement radius, and
 // personality or context biases provide further, tunable sources of behavior
-// that is imperfect but still legible. The aim is variety that an observer can
-// explain, not minimum error.
+// that is imperfect but still legible. PerceptionNoise adds zero-mean Gaussian
+// noise with the configured standard deviation to each perception-driven
+// consideration in a temporary scoring copy; the observed world state remains
+// unchanged. ConventionBreakProbability defines the normal convention as the
+// highest-utility eligible action. When it succeeds, the normal softmax pick
+// is replaced by a uniformly selected eligible action with strictly lower
+// utility, when one exists. The aim is variety that an observer can explain,
+// not minimum error.
 //
 // # Ticks, preemption, and simulation detail
 //

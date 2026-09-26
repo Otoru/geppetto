@@ -11,7 +11,12 @@ import (
 // SelectAction would choose with the same rng), then the remaining candidates
 // in descending utility as fallbacks, capped at the configured limit.
 func RankedPreferences(agent Agent, providers []AffordanceProvider, tuning Tuning, rng *rand.Rand) []Candidate {
-	candidates := Candidates(agent, providers, tuning)
+	var candidates []Candidate
+	if tuning.PerceptionNoise > 0 {
+		candidates = Candidates(perceivedAgent(agent, tuning.PerceptionNoise, rng), providers, tuning)
+	} else {
+		candidates = Candidates(agent, providers, tuning)
+	}
 	if len(candidates) == 0 {
 		return nil
 	}
@@ -21,6 +26,11 @@ func RankedPreferences(agent Agent, providers []AffordanceProvider, tuning Tunin
 		temperature = SELECTION_TEMPERATURE
 	}
 	chosen := sampleSoftmax(topCandidates(candidates, tuning.SelectionTopK), temperature, rng)
+	if tuning.ConventionBreakProbability > 0 && shouldBreakConvention(tuning.ConventionBreakProbability, rng) {
+		if contrarian, ok := conventionBreakingCandidate(candidates, rng); ok {
+			chosen = contrarian
+		}
+	}
 
 	limit := tuning.ReconciliationTopK
 	if limit <= 0 {
