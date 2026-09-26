@@ -114,9 +114,22 @@ type BatchDecideRequest struct {
 	ActionDeltaOffsets        []uint32  `protobuf:"varint,28,rep,packed,name=action_delta_offsets,json=actionDeltaOffsets,proto3" json:"action_delta_offsets,omitempty"`
 	DeltaConsiderationIds     []string  `protobuf:"bytes,29,rep,name=delta_consideration_ids,json=deltaConsiderationIds,proto3" json:"delta_consideration_ids,omitempty"`
 	DeltaValues               []float64 `protobuf:"fixed64,30,rep,packed,name=delta_values,json=deltaValues,proto3" json:"delta_values,omitempty"`
-	Seed                      uint64    `protobuf:"varint,40,opt,name=seed,proto3" json:"seed,omitempty"`
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	// Per-action capacity, aligned by action index. WARNING: the zero semantics
+	// here differ from provider_capacities ON PURPOSE. proto3 encodes an absent
+	// numeric field as 0 and every pre-existing client sends 0, so 0 means
+	// UNLIMITED — the action imposes no own limit and only the provider
+	// capacity applies. A positive value caps simultaneous agents on this
+	// action; an agent joins only with a free slot at BOTH levels, and the
+	// stricter level wins. An empty array reads as all zeros.
+	ActionCapacities []uint32 `protobuf:"varint,31,rep,packed,name=action_capacities,json=actionCapacities,proto3" json:"action_capacities,omitempty"`
+	// Per-action occupancy at tick start, aligned by action index: how many
+	// agents are already executing each action. Absent or 0 means none. This
+	// lets the action cap hold against the initial snapshot, not just within
+	// the batch. An empty array reads as all zeros.
+	ActionOccupancies []uint32 `protobuf:"varint,32,rep,packed,name=action_occupancies,json=actionOccupancies,proto3" json:"action_occupancies,omitempty"`
+	Seed              uint64   `protobuf:"varint,40,opt,name=seed,proto3" json:"seed,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *BatchDecideRequest) Reset() {
@@ -299,6 +312,20 @@ func (x *BatchDecideRequest) GetDeltaConsiderationIds() []string {
 func (x *BatchDecideRequest) GetDeltaValues() []float64 {
 	if x != nil {
 		return x.DeltaValues
+	}
+	return nil
+}
+
+func (x *BatchDecideRequest) GetActionCapacities() []uint32 {
+	if x != nil {
+		return x.ActionCapacities
+	}
+	return nil
+}
+
+func (x *BatchDecideRequest) GetActionOccupancies() []uint32 {
+	if x != nil {
+		return x.ActionOccupancies
 	}
 	return nil
 }
@@ -498,7 +525,7 @@ const file_geppetto_v1_decision_proto_rawDesc = "" +
 	"\bPosition\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x01R\x01x\x12\f\n" +
 	"\x01y\x18\x02 \x01(\x01R\x01y\x12\f\n" +
-	"\x01z\x18\x03 \x01(\x01R\x01z\"\xb6\b\n" +
+	"\x01z\x18\x03 \x01(\x01R\x01z\"\x9a\t\n" +
 	"\x12BatchDecideRequest\x12\x1d\n" +
 	"\n" +
 	"profile_id\x18\x01 \x01(\tR\tprofileId\x12\x1b\n" +
@@ -528,7 +555,9 @@ const file_geppetto_v1_decision_proto_rawDesc = "" +
 	"actionTags\x124\n" +
 	"\x14action_delta_offsets\x18\x1c \x03(\rB\x02\x10\x01R\x12actionDeltaOffsets\x126\n" +
 	"\x17delta_consideration_ids\x18\x1d \x03(\tR\x15deltaConsiderationIds\x12%\n" +
-	"\fdelta_values\x18\x1e \x03(\x01B\x02\x10\x01R\vdeltaValues\x12\x12\n" +
+	"\fdelta_values\x18\x1e \x03(\x01B\x02\x10\x01R\vdeltaValues\x12/\n" +
+	"\x11action_capacities\x18\x1f \x03(\rB\x02\x10\x01R\x10actionCapacities\x121\n" +
+	"\x12action_occupancies\x18  \x03(\rB\x02\x10\x01R\x11actionOccupancies\x12\x12\n" +
 	"\x04seed\x18( \x01(\x04R\x04seed\"\xb5\x01\n" +
 	"\x13BatchDecideResponse\x12:\n" +
 	"\x17selected_action_indices\x18\x01 \x03(\x11B\x02\x10\x01R\x15selectedActionIndices\x12\x1d\n" +

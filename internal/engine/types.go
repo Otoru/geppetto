@@ -177,6 +177,16 @@ type AdvertisedAction struct {
 	IntrinsicPriority   float64            `json:"intrinsic_priority"`
 	AdvertisementRadius float64            `json:"advertisement_radius"`
 	Cost                map[string]float64 `json:"cost"`
+	// Capacity caps simultaneous agents on THIS action. WARNING: unlike
+	// AffordanceProvider.Capacity, zero means UNLIMITED — proto3 encodes an
+	// absent numeric field as 0 and every pre-existing client sends 0, so 0
+	// must read as "no own limit" or every existing action would brick. An
+	// agent joins only with a free slot at both levels; the stricter wins.
+	Capacity int `json:"capacity"`
+	// Occupancy is how many agents the client reports as already executing
+	// this action at tick start. It consumes action slots before the batch
+	// is reconciled.
+	Occupancy int `json:"occupancy"`
 }
 
 // AffordanceProvider advertises actions at a world position with limited capacity.

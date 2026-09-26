@@ -72,3 +72,78 @@ func TestBatchDecide_CapacityTwoAdmitsBothAgents(t *testing.T) {
 		assert.Equal(t, "bed", response.ProviderIds[agentIndex])
 	}
 }
+
+// workbenchRequest builds the bancada scenario: one provider with capacity 4
+// advertising "saw" (action capacity 1) and "hammer" (no own limit), disputed
+// by 5 agents queued nearest-first.
+func workbenchRequest() *gepv1.BatchDecideRequest {
+	request := &gepv1.BatchDecideRequest{
+		ProfileId:                 "test",
+		ProviderIds:               []string{"bench"},
+		ProviderPositionsX:        []float64{0},
+		ProviderPositionsY:        []float64{0},
+		ProviderPositionsZ:        []float64{0},
+		ProviderCapacities:        []uint32{4},
+		ActionProviderIndices:     []uint32{0, 0},
+		ActionIds:                 []string{"saw", "hammer"},
+		ActionEstimatedDurations:  []float64{1, 1},
+		ActionDomains:             []string{"", ""},
+		ActionIntrinsicPriorities: []float64{0, 0},
+		ActionAdvertisementRadii:  []float64{100, 100},
+		ActionCapacities:          []uint32{1, 0},
+		ActionTagOffsets:          []uint32{0, 0, 0},
+		ActionDeltaOffsets:        []uint32{0, 1, 2},
+		DeltaConsiderationIds:     []string{"ENERGY", "ENERGY"},
+		DeltaValues:               []float64{80, 40},
+		Seed:                      7,
+	}
+	for agentIndex := 0; agentIndex < 5; agentIndex++ {
+		request.AgentIds = append(request.AgentIds, string(rune('a'+agentIndex)))
+		request.PositionsX = append(request.PositionsX, float64(agentIndex+1))
+		request.PositionsY = append(request.PositionsY, 0)
+		request.PositionsZ = append(request.PositionsZ, 0)
+		request.ConsiderationValues = append(request.ConsiderationValues, -50)
+	}
+	return request
+}
+
+func TestBatchDecide_ActionCapacityLimitsPerAction(t *testing.T) {
+	service := contendedBedService()
+
+	response, err := service.BatchDecide(context.Background(), workbenchRequest())
+
+	require.NoError(t, err)
+	saw, assigned := 0, 0
+	for agentIndex := range response.SelectedActionIndices {
+		if response.SelectedActionIndices[agentIndex] < 0 {
+			continue
+		}
+		assigned++
+		if response.ActionIds[agentIndex] == "saw" {
+			saw++
+		}
+	}
+	assert.Equal(t, 1, saw, "exactly one agent may operate the saw")
+	assert.Equal(t, 4, assigned, "provider capacity 4 admits the 4 nearest agents")
+	assert.Equal(t, int32(-1), response.SelectedActionIndices[4], "the farthest agent is left out")
+	assert.Equal(t, "saw", response.ActionIds[0], "the nearest agent operates the saw")
+}
+
+func TestBatchDecide_OmittedActionCapacitiesMeansUnlimited(t *testing.T) {
+	service := contendedBedService()
+	request := workbenchRequest()
+	request.ActionCapacities = nil // old client: field absent
+	request.ProviderCapacities = []uint32{5}
+
+	response, err := service.BatchDecide(context.Background(), request)
+
+	require.NoError(t, err)
+	saw := 0
+	for agentIndex := range response.SelectedActionIndices {
+		assert.GreaterOrEqual(t, response.SelectedActionIndices[agentIndex], int32(0))
+		if response.ActionIds[agentIndex] == "saw" {
+			saw++
+		}
+	}
+	assert.Equal(t, 5, saw, "absent action capacities must read as unlimited, never as blocked")
+}

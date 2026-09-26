@@ -66,7 +66,7 @@ flowchart LR
 
 ## E se dois NPCs escolherem a mesma coisa?
 
-Não acontece. O serviço garante que um lote nunca devolve mais agentes para um provedor do que ele tem vagas (capacidade menos os ocupantes informados pelo cliente). A pontuação continua paralela; depois dela, uma reconciliação serial distribui as vagas disputadas **aos agentes mais próximos** — quem alcança o recurso antes fica com ele. O critério é físico, não de mérito: fome não acelera ninguém.
+Não acontece. O serviço garante que um lote nunca devolve mais agentes para um provedor do que ele tem vagas (capacidade menos os ocupantes informados pelo cliente). O limite vale em dois níveis: vaga no provedor **e** vaga na ação — uma bancada pode aceitar 4 martelando e só 1 serrando. A pontuação continua paralela; depois dela, uma reconciliação serial distribui as vagas disputadas **aos agentes mais próximos** — quem alcança o recurso antes fica com ele. O critério é físico, não de mérito: fome não acelera ninguém.
 
 Quem perde a disputa recebe a próxima opção da própria lista de preferência, o que pode desalojar outro NPC mais distante — a reconciliação repete até estabilizar. Se esgotar as opções, o agente sai com `selected_action_index = -1` (sem `action_id` nem `provider_id`) e o ócio é decisão do jogo. A atribuição é determinística (mesma entrada + mesma seed = mesma decisão) e stateless: a arbitragem acontece dentro da chamada, nada fica guardado entre requisições.
 

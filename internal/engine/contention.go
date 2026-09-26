@@ -42,11 +42,26 @@ func RankedPreferences(agent Agent, providers []AffordanceProvider, tuning Tunin
 	return ranked
 }
 
-// ResolveContention distributes contested provider slots to the nearest
-// agents. preferences[i] is agent i's ordered candidate list, as produced by
+// actionFreeSlots returns how many agents can still join the action at tick
+// start: Capacity minus reported Occupancy, or -1 (unlimited) when Capacity
+// is 0. See the warning on AdvertisedAction.Capacity.
+func actionFreeSlots(action AdvertisedAction) int {
+	if action.Capacity <= 0 {
+		return -1
+	}
+	return max(action.Capacity-action.Occupancy, 0)
+}
+
+// ResolveContention distributes contested slots to the nearest agents.
+// preferences[i] is agent i's ordered candidate list, as produced by
 // RankedPreferences. It returns one ActionInstance per agent, nil when the
-// agent exhausted its candidates. Free slots are Capacity minus the occupants
-// reported by the client.
+// agent exhausted its candidates.
+//
+// Slots are enforced at TWO levels: the provider's (Capacity minus the
+// occupants reported by the client) and the action's own (Capacity minus
+// Occupancy; action capacity 0 means unlimited — see the warning on
+// AdvertisedAction.Capacity). An agent wins its current candidate only with
+// a free slot at both levels; the stricter level wins.
 //
 // The loop terminates because a displaced agent's cursor only moves forward
 // through its own finite list: each agent is displaced from a given candidate
@@ -84,10 +99,23 @@ func ResolveContention(agents []Agent, preferences [][]Candidate) []*ActionInsta
 				return cmp.Compare(a, b)
 			})
 			provider := preferences[claimants[0]][cursors[claimants[0]]].Provider
-			slots := provider.Capacity - len(provider.Occupants)
-			for rank, agentIndex := range claimants {
-				if rank < slots {
+			providerSlots := provider.Capacity - len(provider.Occupants)
+			// Action slots are per provider instance: action "saw" on bench X
+			// does not share its cap with "saw" on bench Y. -1 = unlimited.
+			actionSlots := map[string]int{}
+			for _, agentIndex := range claimants {
+				candidate := preferences[agentIndex][cursors[agentIndex]]
+				slots, tracked := actionSlots[candidate.Action.ActionID]
+				if !tracked {
+					slots = actionFreeSlots(candidate.Action)
+					actionSlots[candidate.Action.ActionID] = slots
+				}
+				if providerSlots > 0 && slots != 0 {
 					assigned[agentIndex] = cursors[agentIndex]
+					providerSlots--
+					if slots > 0 {
+						actionSlots[candidate.Action.ActionID] = slots - 1
+					}
 				} else {
 					assigned[agentIndex] = -1
 					cursors[agentIndex]++

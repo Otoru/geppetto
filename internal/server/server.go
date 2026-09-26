@@ -301,6 +301,15 @@ func decodeActions(request *gepv1.BatchDecideRequest, providers []engine.Afforda
 	if len(request.DeltaConsiderationIds) != len(request.DeltaValues) {
 		return nil, fmt.Errorf("delta arrays must have equal lengths")
 	}
+	// action_capacities/action_occupancies are optional: an empty array reads
+	// as all zeros (unlimited capacity, no occupancy), which is what every
+	// pre-existing client sends.
+	if len(request.ActionCapacities) != 0 && len(request.ActionCapacities) != actionCount {
+		return nil, fmt.Errorf("action_capacities must match action_ids")
+	}
+	if len(request.ActionOccupancies) != 0 && len(request.ActionOccupancies) != actionCount {
+		return nil, fmt.Errorf("action_occupancies must match action_ids")
+	}
 
 	actions := make([]engine.AdvertisedAction, actionCount)
 	for actionIndex := range actions {
@@ -331,7 +340,17 @@ func decodeAction(request *gepv1.BatchDecideRequest, actionIndex int) engine.Adv
 		Domain:              request.ActionDomains[actionIndex],
 		IntrinsicPriority:   request.ActionIntrinsicPriorities[actionIndex],
 		AdvertisementRadius: request.ActionAdvertisementRadii[actionIndex],
+		Capacity:            int(uint32At(request.ActionCapacities, actionIndex)),
+		Occupancy:           int(uint32At(request.ActionOccupancies, actionIndex)),
 	}
+}
+
+// uint32At reads index from a parallel array that may be omitted entirely.
+func uint32At(array []uint32, index int) uint32 {
+	if len(array) == 0 {
+		return 0
+	}
+	return array[index]
 }
 
 func validateOffsets(offsets []uint32, length, itemCount int, name string) error {

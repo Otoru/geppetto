@@ -147,7 +147,7 @@ func Candidates(agent Agent, providers []AffordanceProvider, tuning Tuning) []Ca
 		}
 
 		for _, action := range provider.AdvertisedActions {
-			if !isActionInRange(agent, provider, action) || !satisfies(agent, provider, action) {
+			if actionSaturated(action) || !isActionInRange(agent, provider, action) || !satisfies(agent, provider, action) {
 				continue
 			}
 
@@ -166,6 +166,13 @@ func Candidates(agent Agent, providers []AffordanceProvider, tuning Tuning) []Ca
 
 func isActionInRange(agent Agent, provider AffordanceProvider, action AdvertisedAction) bool {
 	return provider.Position.Distance(agent.Position) <= action.AdvertisementRadius
+}
+
+// actionSaturated reports whether the action's own slots are already consumed
+// by the occupancy the client reported. Capacity 0 means unlimited — see the
+// warning on AdvertisedAction.Capacity.
+func actionSaturated(action AdvertisedAction) bool {
+	return action.Capacity > 0 && action.Occupancy >= action.Capacity
 }
 
 // SelectAction selects one of the highest-scoring candidates with softmax.
