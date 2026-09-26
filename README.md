@@ -55,7 +55,3 @@ action := decider.Decide(agent, providers, seed) // same seed, same choice
 - `make build` — produces `bin/geppetto`
 - `make test` — `go test ./...`
 - `make dev` — hot reload via [Air](https://github.com/air-verse/air)
-
-## Provenance
-
-- The design was generalized from analysis of a promotional video about the AI of a life-simulation game. Nothing here claims anything about that game's real implementation.
