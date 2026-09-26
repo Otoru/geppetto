@@ -4,6 +4,9 @@
 /npcai
 /npcai-*
 
+# Diretório temporário do air (hot reload de dev)
+/tmp/
+
 # Artefatos de teste e cobertura
 *.test
 *.out
