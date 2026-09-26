@@ -7,6 +7,7 @@ import (
 	"github.com/vitorhugo/npcai/internal/config"
 	"github.com/vitorhugo/npcai/internal/engine"
 	"go.uber.org/fx"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 )
 
@@ -39,15 +40,21 @@ func LoadProfiles(directory string) (*ProfileCache, error) {
 		return nil, fmt.Errorf("no profile JSON files found in %q", directory)
 	}
 	profiles := make(map[string]engine.Profile, len(paths))
+	var loadErrors error
 	for _, path := range paths {
 		profile, err := engine.LoadProfile(path)
 		if err != nil {
-			return nil, fmt.Errorf("load %s: %w", path, err)
+			loadErrors = multierr.Append(loadErrors, fmt.Errorf("load %s: %w", path, err))
+			continue
 		}
 		if profile.Name == "" {
-			return nil, fmt.Errorf("profile %s has no name", path)
+			loadErrors = multierr.Append(loadErrors, fmt.Errorf("profile %s has no name", path))
+			continue
 		}
 		profiles[profile.Name] = profile
+	}
+	if loadErrors != nil {
+		return nil, loadErrors
 	}
 	return NewProfileCache(profiles), nil
 }

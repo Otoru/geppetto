@@ -25,6 +25,20 @@ func TestProvideProfilesPropagatesLoadErrors(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestLoadProfilesReportsEveryInvalidProfile(t *testing.T) {
+	directory := t.TempDir()
+	firstProfilePath := filepath.Join(directory, "first-invalid.json")
+	secondProfilePath := filepath.Join(directory, "second-invalid.json")
+	require.NoError(t, os.WriteFile(firstProfilePath, []byte("{"), 0o600))
+	require.NoError(t, os.WriteFile(secondProfilePath, []byte("{"), 0o600))
+
+	_, err := LoadProfiles(directory)
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, firstProfilePath)
+	assert.ErrorContains(t, err, secondProfilePath)
+}
+
 func TestNewGRPCServerFromParams(t *testing.T) {
 	cache := NewProfileCache(nil)
 	result := NewGRPCServer(GRPCParams{Log: zap.NewNop(), Profiles: cache})

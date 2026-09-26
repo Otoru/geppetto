@@ -19,6 +19,7 @@ import (
 	"github.com/vitorhugo/npcai/internal/server"
 	"github.com/vitorhugo/npcai/internal/transport"
 	"go.uber.org/fx"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -68,6 +69,8 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		fx.Provide(server.NewGRPCServer),
 		fx.Invoke(func(lc fx.Lifecycle, log *zap.Logger) {
 			lc.Append(fx.Hook{OnStop: func(context.Context) error {
+				// Syncing stderr commonly reports a spurious invalid-argument error
+				// on normal process shutdown, so it is intentionally not propagated.
 				_ = log.Sync()
 				return nil
 			}})
@@ -80,8 +83,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 					line := handshake{Transport: p.Listener.Transport, Addr: p.Listener.Addr().String(), PID: cfg.PID, Version: cfg.Version}
 					if err := json.NewEncoder(cfg.Stdout).Encode(line); err != nil {
 						p.GRPC.Stop()
-						_ = p.Listener.Cleanup()
-						return err
+						return multierr.Append(err, p.Listener.Cleanup())
 					}
 					p.Log.Info("npcai listening", zap.String("transport", p.Listener.Transport), zap.String("addr", p.Listener.Addr().String()))
 					return nil
@@ -90,6 +92,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 					p.Health.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
 					p.GRPC.GracefulStop()
 					if err := p.Listener.Cleanup(); err != nil {
+						// A SIGTERM-driven shutdown must remain successful. Propagating
+						// this error through fx makes the subprocess exit non-zero even
+						// though the server has already stopped accepting work.
 						p.Log.Warn("listener cleanup failed", zap.Error(err))
 					}
 					return nil

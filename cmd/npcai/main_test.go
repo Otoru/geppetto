@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -17,6 +18,25 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
+
+var errHandshakeWrite = errors.New("handshake write failed")
+
+type handshakeFailureWriter struct {
+	socket string
+}
+
+func (writer handshakeFailureWriter) Write([]byte) (int, error) {
+	if err := os.Remove(writer.socket); err != nil {
+		return 0, err
+	}
+	if err := os.Mkdir(writer.socket, 0o700); err != nil {
+		return 0, err
+	}
+	if err := os.WriteFile(filepath.Join(writer.socket, "lock"), []byte("keep"), 0o600); err != nil {
+		return 0, err
+	}
+	return 0, errHandshakeWrite
+}
 
 func TestRunEmitsHandshakeServesHealthAndCleansUpSocket(t *testing.T) {
 	directory := t.TempDir()
@@ -59,4 +79,18 @@ func TestRunEmitsHandshakeServesHealthAndCleansUpSocket(t *testing.T) {
 	require.NoError(t, <-done)
 	_, err = os.Lstat(socket)
 	assert.True(t, os.IsNotExist(err))
+}
+
+func TestRunReturnsHandshakeAndCleanupErrors(t *testing.T) {
+	directory := t.TempDir()
+	profile := []byte(`{"name":"test","considerations":[{"id":"ENERGY","value":100,"min":-100,"max":100,"base_weight":1,"critical_threshold":-50,"response_curve":{"kind":"convex","exponent":2}}],"tuning":{"SELECTION_TEMPERATURE":1}}`)
+	require.NoError(t, os.WriteFile(filepath.Join(directory, "test.json"), profile, 0o600))
+
+	socket := filepath.Join(os.TempDir(), fmt.Sprintf("npcai-handshake-error-%d.sock", os.Getpid()))
+	defer func() { _ = os.RemoveAll(socket) }()
+	err := run(context.Background(), []string{"--socket", socket, "--config-dir", directory}, handshakeFailureWriter{socket: socket}, io.Discard)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, errHandshakeWrite)
+	assert.ErrorContains(t, err, "directory not empty")
 }
