@@ -1,0 +1,18 @@
+# Binários compilados (cross-compile do `make build-all`)
+/bin/
+/dist/
+/npcai
+/npcai-*
+
+# Artefatos de teste e cobertura
+*.test
+*.out
+coverage.*
+
+# Sockets criados em runtime pelos testes de transporte
+*.sock
+
+# Editor / SO
+.DS_Store
+.idea/
+.vscode/

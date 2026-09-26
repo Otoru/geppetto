@@ -1,0 +1,35 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.4'
+      - uses: bufbuild/buf-setup-action@v1
+      - uses: golangci/golangci-lint-action@v7
+        with:
+          version: latest
+          install-mode: binary
+      - name: Verify generated bindings
+        run: |
+          make generate
+          git diff --exit-code -- gen
+      - name: Buf lint and breaking checks
+        run: |
+          buf lint
+          buf breaking --against ".git#branch=${{ github.event.repository.default_branch }}"
+      - name: Test with race detector
+        run: go test -race ./...
+      - name: Lint
+        run: golangci-lint run ./...
+      - name: Build
+        run: go build ./...

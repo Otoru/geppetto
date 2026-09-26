@@ -1,0 +1,80 @@
+{
+    "name": "open-world-rpg",
+    "considerations": [
+        {
+            "id": "ENERGY",
+            "value": 100,
+            "min": -100,
+            "max": 100,
+            "updater": {
+                "kind": "linear_decay",
+                "rate": 12.5
+            },
+            "base_weight": 3,
+            "critical_threshold": -60,
+            "response_curve": {
+                "kind": "convex",
+                "exponent": 2
+            }
+        },
+        {
+            "id": "HUNGER",
+            "value": 100,
+            "min": -100,
+            "max": 100,
+            "updater": {
+                "kind": "linear_decay",
+                "rate": 10
+            },
+            "base_weight": 3,
+            "critical_threshold": -50,
+            "response_curve": {
+                "kind": "convex",
+                "exponent": 2
+            }
+        },
+        {
+            "id": "DUTY",
+            "value": 100,
+            "min": -100,
+            "max": 100,
+            "updater": {
+                "kind": "linear_decay",
+                "rate": 8
+            },
+            "base_weight": 2,
+            "critical_threshold": -40,
+            "response_curve": {
+                "kind": "convex",
+                "exponent": 2
+            }
+        },
+        {
+            "id": "SECURITY",
+            "value": 0,
+            "min": -100,
+            "max": 100,
+            "updater": {
+                "kind": "perception_driven"
+            },
+            "base_weight": 5,
+            "critical_threshold": -40,
+            "response_curve": {
+                "kind": "convex",
+                "exponent": 2
+            }
+        }
+    ],
+    "tuning": {
+        "response_curve_exponent": 2,
+        "W_PRIORITY": 2,
+        "DISTANCE_REFERENCE": 10,
+        "SELECTION_TOP_K": 3,
+        "SELECTION_TEMPERATURE": 1.2,
+        "preemption_margin": 1.7,
+        "convention_break_probability": 0.15,
+        "perception_noise": 5,
+        "full_tick_hours": 0.0166667,
+        "simplified_tick_hours": 1
+    }
+}

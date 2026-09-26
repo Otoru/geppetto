@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package npcai.v1;
+
+option go_package = "github.com/vitorhugo/npcai/gen/go/npcai/v1;npcv1";
+
+// DecisionService is stateless: every decision carries the agent state needed
+// for scoring. BatchDecide is the production path; Decide is useful for tuning.
+service DecisionService {
+  rpc BatchDecide(BatchDecideRequest) returns (BatchDecideResponse);
+  rpc Decide(DecideRequest) returns (DecideResponse);
+}
+
+message Position {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}
+
+// This is a structure-of-arrays (SoA) payload: parallel packed arrays avoid a
+// repeated Agent envelope dominating serialization and allocation costs. At
+// 50k+ agents per tick, replacing it with one message per agent would make the
+// wire and GC overhead part of the decision budget again.
+//
+// A batch has exactly one profile_id. Its consideration_values use the order
+// declared by that profile, so profiles cannot be mixed in the same batch: a
+// value at a given offset would otherwise have no unambiguous meaning.
+message BatchDecideRequest {
+  string profile_id = 1;
+  repeated string agent_ids = 2;
+  repeated double positions_x = 3 [packed = true];
+  repeated double positions_y = 4 [packed = true];
+  repeated double positions_z = 5 [packed = true];
+  repeated double consideration_values = 6 [packed = true];
+
+  repeated string provider_ids = 10;
+  repeated double provider_positions_x = 11 [packed = true];
+  repeated double provider_positions_y = 12 [packed = true];
+  repeated double provider_positions_z = 13 [packed = true];
+  repeated uint32 provider_capacities = 14 [packed = true];
+
+  // Each action references its provider and uses offset arrays for tags/deltas.
+  repeated uint32 action_provider_indices = 20 [packed = true];
+  repeated string action_ids = 21;
+  repeated double action_estimated_durations = 22 [packed = true];
+  repeated string action_domains = 23;
+  repeated double action_intrinsic_priorities = 24 [packed = true];
+  repeated double action_advertisement_radii = 25 [packed = true];
+  repeated uint32 action_tag_offsets = 26 [packed = true];
+  repeated string action_tags = 27;
+  repeated uint32 action_delta_offsets = 28 [packed = true];
+  repeated string delta_consideration_ids = 29;
+  repeated double delta_values = 30 [packed = true];
+
+  uint64 seed = 40;
+}
+
+message BatchDecideResponse {
+  repeated sint32 selected_action_indices = 1 [packed = true];
+  repeated string action_ids = 2;
+  repeated string provider_ids = 3;
+  repeated double utilities = 4 [packed = true];
+}
+
+message DecideRequest {
+  BatchDecideRequest batch = 1;
+}
+
+message DecideResponse {
+  sint32 selected_action_index = 1;
+  string action_id = 2;
+  string provider_id = 3;
+  double utility = 4;
+}

@@ -1,0 +1,239 @@
+// Package engine contains the deterministic, stateless Utility AI core.
+//
+// It evaluates Consideration values against AdvertisedAction promises. It does
+// not discover world entities, own transport state, or persist NPC state; the
+// caller supplies an Agent and its available AffordanceProviders for each
+// decision.
+package engine
+
+import "math"
+
+const (
+	// W_PRIORITY is the default multiplier for an action's intrinsic priority.
+	W_PRIORITY = 5.0
+	// DISTANCE_REFERENCE is the default world-distance denominator in scoring.
+	DISTANCE_REFERENCE = 10.0
+	// SELECTION_TOP_K is the default number of scored candidates sampled from.
+	SELECTION_TOP_K = 3
+	// SELECTION_TEMPERATURE is the default softmax temperature for selection.
+	SELECTION_TEMPERATURE = 1.0
+)
+
+// Position is a three-dimensional point in world units.
+type Position struct{ X, Y, Z float64 }
+
+// Distance returns the Euclidean distance from p to to.
+func (p Position) Distance(to Position) float64 {
+	return math.Sqrt((p.X-to.X)*(p.X-to.X) + (p.Y-to.Y)*(p.Y-to.Y) + (p.Z-to.Z)*(p.Z-to.Z))
+}
+
+// ResponseCurveKind identifies the function used to turn a consideration
+// value into a normalized pressure.
+type ResponseCurveKind string
+
+const (
+	// Convex increases pressure rapidly as a consideration approaches its minimum.
+	Convex ResponseCurveKind = "convex"
+	// Linear changes pressure proportionally to the consideration value.
+	Linear ResponseCurveKind = "linear"
+	// Step switches pressure at the curve threshold.
+	Step ResponseCurveKind = "step"
+	// Logistic transitions pressure smoothly around the curve midpoint.
+	Logistic ResponseCurveKind = "logistic"
+)
+
+// ResponseCurve configures the response-curve parameters for a Consideration.
+type ResponseCurve struct {
+	Kind ResponseCurveKind `json:"kind"`
+	// Exponent overrides the profile default for this convex consideration.
+	Exponent  float64 `json:"exponent,omitempty"`
+	Threshold float64 `json:"threshold,omitempty"`
+	Below     float64 `json:"below,omitempty"`
+	Above     float64 `json:"above,omitempty"`
+	Slope     float64 `json:"slope,omitempty"`
+	Midpoint  float64 `json:"midpoint,omitempty"`
+}
+
+// UpdaterKind identifies how a Consideration changes between decisions.
+type UpdaterKind string
+
+const (
+	// LinearDecay subtracts Rate on every update.
+	LinearDecay UpdaterKind = "linear_decay"
+	// LinearRegen adds Rate on every update.
+	LinearRegen UpdaterKind = "linear_regen"
+	// EventDriven changes only when an explicit event mutates it.
+	EventDriven UpdaterKind = "event_driven"
+	// PerceptionDriven reads a value from the perceived world.
+	PerceptionDriven UpdaterKind = "perception_driven"
+	// RelationshipDriven derives its value from a relationship.
+	RelationshipDriven UpdaterKind = "relationship_driven"
+	// ContextAggregate derives its value from environmental context.
+	ContextAggregate UpdaterKind = "context_aggregate"
+)
+
+// World supplies external values used by consideration updaters. Perception,
+// Relationships, and ContextValues feed their corresponding updater kinds. It
+// is input to a tick, not state owned by the engine.
+type World struct {
+	Perception    map[string]float64
+	Relationships map[string]float64
+	ContextValues map[string]float64
+}
+
+// ConsiderationUpdater defines the dynamics applied to a Consideration.
+type ConsiderationUpdater struct {
+	Kind  UpdaterKind                `json:"kind"`
+	Rate  float64                    `json:"rate,omitempty"`
+	Value func(Agent, World) float64 `json:"-"`
+}
+
+// Consideration is a normalized NPC signal, its bounds, and its scoring rule.
+type Consideration struct {
+	ID                string               `json:"id"`
+	Value             float64              `json:"value"`
+	Min               float64              `json:"min"`
+	Max               float64              `json:"max"`
+	Updater           ConsiderationUpdater `json:"updater"`
+	BaseWeight        float64              `json:"base_weight"`
+	CriticalThreshold float64              `json:"critical_threshold"`
+	ResponseCurve     ResponseCurve        `json:"response_curve"`
+}
+
+// Trait changes action-tag multipliers and consideration updater rates.
+type Trait struct {
+	ID                 string             `json:"id"`
+	Modifiers          map[string]float64 `json:"modifiers"`
+	ConsiderationDelta map[string]float64 `json:"consideration_delta"`
+}
+
+// Personality collects an agent's domain preferences and traits.
+type Personality struct {
+	Preferences map[string]float64 `json:"preferences"`
+	Traits      []Trait            `json:"traits"`
+}
+
+// Context temporarily biases actions carrying matching tags.
+type Context struct {
+	Modifiers map[string]float64 `json:"modifiers"`
+	Duration  float64            `json:"duration"`
+}
+
+// SimulationLevel identifies whether the agent receives detailed or aggregated updates.
+type SimulationLevel string
+
+const (
+	// Full runs the detailed per-tick decision loop.
+	Full SimulationLevel = "FULL"
+	// Simplified represents an agent with aggregated, low-detail events.
+	Simplified SimulationLevel = "SIMPLIFIED"
+)
+
+// NarrativeCommitment prevents autonomous actions with contradictory tags.
+type NarrativeCommitment struct {
+	ID                string          `json:"id"`
+	ContradictoryTags map[string]bool `json:"contradictory_tags"`
+	ExpiresAt         float64         `json:"expires_at"`
+}
+
+// Agent contains all state the engine needs to update and score one NPC.
+type Agent struct {
+	ID                   string
+	Considerations       map[string]Consideration
+	Personality          Personality
+	CurrentAction        *ActionInstance
+	ActionQueue          []ActionInstance
+	Position             Position
+	Capabilities         map[string]bool
+	ActiveContexts       []Context
+	SimulationLevel      SimulationLevel
+	NarrativeCommitments []NarrativeCommitment
+	Resources            map[string]float64
+	AggregatedEvents     []AggregatedEvent
+}
+
+// Precondition is an agent capability/resource requirement or a provider-state
+// requirement for an AdvertisedAction.
+type Precondition struct {
+	Capability string  `json:"capability,omitempty"`
+	Resource   string  `json:"resource,omitempty"`
+	Minimum    float64 `json:"minimum,omitempty"`
+	// RequiredState must match the AffordanceProvider state when it is non-empty.
+	RequiredState string `json:"required_state,omitempty"`
+}
+
+// AdvertisedAction is a provider's declarative promise of consideration deltas.
+type AdvertisedAction struct {
+	ActionID            string             `json:"action_id"`
+	Deltas              map[string]float64 `json:"deltas"`
+	EstimatedDuration   float64            `json:"estimated_duration"`
+	Tags                []string           `json:"tags"`
+	Domain              string             `json:"domain"`
+	Preconditions       []Precondition     `json:"preconditions"`
+	IntrinsicPriority   float64            `json:"intrinsic_priority"`
+	AdvertisementRadius float64            `json:"advertisement_radius"`
+	Cost                map[string]float64 `json:"cost"`
+}
+
+// AffordanceProvider advertises actions at a world position with limited capacity.
+type AffordanceProvider struct {
+	ID                string             `json:"id"`
+	Position          Position           `json:"position"`
+	AdvertisedActions []AdvertisedAction `json:"advertised_actions"`
+	Capacity          int                `json:"capacity"`
+	Occupants         []string           `json:"occupants"`
+	State             string             `json:"state"`
+}
+
+// ActionInstance records a selected action and its progress for preemption.
+type ActionInstance struct {
+	Action              AdvertisedAction
+	ProviderID          string
+	Elapsed             float64
+	ContinuationUtility float64
+	PlayerQueued        bool
+}
+
+// Candidate couples an eligible advertised action with its scored utility.
+type Candidate struct {
+	Action   AdvertisedAction
+	Provider AffordanceProvider
+	Utility  float64
+}
+
+// Tuning collects the profile-level parameters that control engine behavior.
+type Tuning struct {
+	// ResponseCurveExponent is the profile default for convex curves without an override.
+	ResponseCurveExponent      float64 `json:"response_curve_exponent"`
+	WPriority                  float64 `json:"W_PRIORITY"`
+	DistanceReference          float64 `json:"DISTANCE_REFERENCE"`
+	SelectionTopK              int     `json:"SELECTION_TOP_K"`
+	SelectionTemperature       float64 `json:"SELECTION_TEMPERATURE"`
+	PreemptionMargin           float64 `json:"preemption_margin"`
+	ConventionBreakProbability float64 `json:"convention_break_probability"`
+	PerceptionNoise            float64 `json:"perception_noise"`
+	FullTickHours              float64 `json:"full_tick_hours"`
+	SimplifiedTickHours        float64 `json:"simplified_tick_hours"`
+}
+
+// DefaultTuning returns the specification's default tuning values.
+func DefaultTuning() Tuning {
+	return Tuning{
+		ResponseCurveExponent:      2,
+		WPriority:                  W_PRIORITY,
+		DistanceReference:          DISTANCE_REFERENCE,
+		SelectionTopK:              SELECTION_TOP_K,
+		SelectionTemperature:       SELECTION_TEMPERATURE,
+		PreemptionMargin:           1.5,
+		ConventionBreakProbability: .15,
+		PerceptionNoise:            5,
+		FullTickHours:              1.0 / 60,
+		SimplifiedTickHours:        1,
+	}
+}
+
+// AggregatedEvent records a coarse simulation event for a simplified agent.
+type AggregatedEvent struct {
+	Kind   string
+	AtHour float64
+}

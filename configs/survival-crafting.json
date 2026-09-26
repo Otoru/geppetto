@@ -1,0 +1,65 @@
+{
+    "name": "survival-crafting",
+    "considerations": [
+        {
+            "id": "HUNGER",
+            "value": 100,
+            "min": -100,
+            "max": 100,
+            "updater": {
+                "kind": "linear_decay",
+                "rate": 10
+            },
+            "base_weight": 4,
+            "critical_threshold": -50,
+            "response_curve": {
+                "kind": "convex",
+                "exponent": 2
+            }
+        },
+        {
+            "id": "THIRST",
+            "value": 100,
+            "min": -100,
+            "max": 100,
+            "updater": {
+                "kind": "linear_decay",
+                "rate": 12
+            },
+            "base_weight": 4,
+            "critical_threshold": -55,
+            "response_curve": {
+                "kind": "convex",
+                "exponent": 2
+            }
+        },
+        {
+            "id": "ENERGY",
+            "value": 100,
+            "min": -100,
+            "max": 100,
+            "updater": {
+                "kind": "linear_decay",
+                "rate": 12.5
+            },
+            "base_weight": 3,
+            "critical_threshold": -60,
+            "response_curve": {
+                "kind": "convex",
+                "exponent": 2
+            }
+        }
+    ],
+    "tuning": {
+        "response_curve_exponent": 2,
+        "W_PRIORITY": 5,
+        "DISTANCE_REFERENCE": 10,
+        "SELECTION_TOP_K": 3,
+        "SELECTION_TEMPERATURE": 0.8,
+        "preemption_margin": 1.5,
+        "convention_break_probability": 0.15,
+        "perception_noise": 5,
+        "full_tick_hours": 0.0166667,
+        "simplified_tick_hours": 1
+    }
+}
