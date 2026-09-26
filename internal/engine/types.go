@@ -17,6 +17,10 @@ const (
 	SELECTION_TOP_K = 3
 	// SELECTION_TEMPERATURE is the default softmax temperature for selection.
 	SELECTION_TEMPERATURE = 1.0
+	// RECONCILIATION_TOP_K is the default number of ordered candidates each
+	// agent retains for contention resolution. At 50k agents per batch,
+	// retaining full candidate lists per agent would blow the memory budget.
+	RECONCILIATION_TOP_K = 5
 )
 
 // Position is a three-dimensional point in world units.
@@ -204,11 +208,15 @@ type Candidate struct {
 // Tuning collects the profile-level parameters that control engine behavior.
 type Tuning struct {
 	// ResponseCurveExponent is the profile default for convex curves without an override.
-	ResponseCurveExponent      float64 `json:"response_curve_exponent"`
-	WPriority                  float64 `json:"W_PRIORITY"`
-	DistanceReference          float64 `json:"DISTANCE_REFERENCE"`
-	SelectionTopK              int     `json:"SELECTION_TOP_K"`
-	SelectionTemperature       float64 `json:"SELECTION_TEMPERATURE"`
+	ResponseCurveExponent float64 `json:"response_curve_exponent"`
+	WPriority             float64 `json:"W_PRIORITY"`
+	DistanceReference     float64 `json:"DISTANCE_REFERENCE"`
+	SelectionTopK         int     `json:"SELECTION_TOP_K"`
+	SelectionTemperature  float64 `json:"SELECTION_TEMPERATURE"`
+	// ReconciliationTopK caps how many ordered candidates each agent retains
+	// for contention resolution: the stochastic first pick plus
+	// utility-ordered fallbacks.
+	ReconciliationTopK         int     `json:"RECONCILIATION_TOP_K"`
 	PreemptionMargin           float64 `json:"preemption_margin"`
 	ConventionBreakProbability float64 `json:"convention_break_probability"`
 	PerceptionNoise            float64 `json:"perception_noise"`
@@ -224,6 +232,7 @@ func DefaultTuning() Tuning {
 		DistanceReference:          DISTANCE_REFERENCE,
 		SelectionTopK:              SELECTION_TOP_K,
 		SelectionTemperature:       SELECTION_TEMPERATURE,
+		ReconciliationTopK:         RECONCILIATION_TOP_K,
 		PreemptionMargin:           1.5,
 		ConventionBreakProbability: .15,
 		PerceptionNoise:            5,

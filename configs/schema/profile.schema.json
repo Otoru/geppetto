@@ -164,6 +164,11 @@
                     "maximum": 5,
                     "description": "Temperatura do softmax: maior = escolhas mais aleatórias; próxima de 0 = quase argmax. 0 ou omitido = default 1,0. Faixa da spec: [0,1, 5]; por gênero, 0,3 (tático) a 1,5 (social)."
                 },
+                "RECONCILIATION_TOP_K": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Quantos candidatos ordenados cada agente retém para a reconciliação de disputas: a escolha estocástica mais os planos B em ordem de utilidade. 0 ou omitido = default 5. Em lotes de 50k agentes, valores altos estouram memória."
+                },
                 "preemption_margin": {
                     "type": "number",
                     "minimum": 1,

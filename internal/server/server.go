@@ -127,9 +127,14 @@ func newBatchResponse(agentCount int) *gepv1.BatchDecideResponse {
 }
 
 func (s *DecisionServer) decideBatch(ctx context.Context, request *gepv1.BatchDecideRequest, profile engine.Profile, providers []engine.AffordanceProvider, actions []engine.AdvertisedAction, response *gepv1.BatchDecideResponse) {
+	agentCount := len(request.AgentIds)
+	preferences := make([][]engine.Candidate, agentCount)
+
+	// Parallel phase: each agent scores and ranks its candidates. Workers
+	// write only to their own preferences slot; providers stay read-only.
 	jobs := make(chan int)
 	var workers sync.WaitGroup
-	workerCount := min(s.workers, len(request.AgentIds))
+	workerCount := min(s.workers, agentCount)
 	for range workerCount {
 		workers.Add(1)
 		go func() {
@@ -138,16 +143,33 @@ func (s *DecisionServer) decideBatch(ctx context.Context, request *gepv1.BatchDe
 				if ctx.Err() != nil {
 					continue
 				}
-				s.decideOne(request, profile, providers, actions, agentIndex, response)
+				s.rankOne(request, profile, providers, agentIndex, preferences)
 			}
 		}()
 	}
 
-	for agentIndex := range len(request.AgentIds) {
+	for agentIndex := range agentCount {
 		jobs <- agentIndex
 	}
 	close(jobs)
 	workers.Wait()
+
+	// Serial reconciliation: contested provider slots go to the nearest
+	// agents; losers walk their own fallback lists. Agents that exhaust
+	// their candidates keep the -1 prefilled by newBatchResponse.
+	agents := make([]engine.Agent, agentCount)
+	for agentIndex := range agents {
+		agents[agentIndex] = engine.Agent{
+			ID:       request.AgentIds[agentIndex],
+			Position: engine.Position{X: request.PositionsX[agentIndex], Y: request.PositionsY[agentIndex], Z: request.PositionsZ[agentIndex]},
+		}
+	}
+	assignments := engine.ResolveContention(agents, preferences)
+	for agentIndex, selected := range assignments {
+		if selected != nil {
+			writeDecision(response, agentIndex, selected, actions, providers, request.ActionProviderIndices)
+		}
+	}
 }
 
 // Decide scores exactly one agent through the BatchDecide implementation.
@@ -170,15 +192,12 @@ func (s *DecisionServer) Decide(ctx context.Context, request *gepv1.DecideReques
 	}, nil
 }
 
-func (s *DecisionServer) decideOne(request *gepv1.BatchDecideRequest, profile engine.Profile, providers []engine.AffordanceProvider, actions []engine.AdvertisedAction, agentIndex int, response *gepv1.BatchDecideResponse) {
+func (s *DecisionServer) rankOne(request *gepv1.BatchDecideRequest, profile engine.Profile, providers []engine.AffordanceProvider, agentIndex int, preferences [][]engine.Candidate) {
 	agent := s.agents.Get().(*engine.Agent)
 	populateAgent(agent, request, profile, agentIndex)
 
 	rng := rand.New(rand.NewPCG(request.Seed+uint64(agentIndex), request.Seed+uint64(agentIndex)+1))
-	selected := engine.SelectAction(*agent, providers, profile.Tuning, rng)
-	if selected != nil {
-		writeDecision(response, agentIndex, selected, actions, providers, request.ActionProviderIndices)
-	}
+	preferences[agentIndex] = engine.RankedPreferences(*agent, providers, profile.Tuning, rng)
 
 	*agent = engine.Agent{}
 	s.agents.Put(agent)
