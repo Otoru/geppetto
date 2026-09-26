@@ -74,8 +74,7 @@ func TestZeroActionCapacityMeansUnlimited(t *testing.T) {
 	// mean "no own limit" — otherwise every existing action would brick.
 	hall.AdvertisedActions[0].Capacity = 0
 	providers := []AffordanceProvider{hall}
-	agents, _ := workbench(0, 0)
-	agents = make([]Agent, 5)
+	agents := make([]Agent, 5)
 	for i := range agents {
 		agents[i] = testAgent(c("HUNGER", -50))
 		agents[i].ID = string(rune('a' + i))

@@ -1,7 +1,6 @@
 package geppetto
 
 import (
-	"go/ast"
 	"go/build"
 	"go/parser"
 	"go/token"
@@ -34,7 +33,7 @@ func TestProductionFilesImportOnlyTheStandardLibrary(t *testing.T) {
 	if !ok {
 		t.Fatal("production geppetto package was not found")
 	}
-	var productionFiles map[string]*ast.File = enginePackage.Files
+	productionFiles := enginePackage.Files
 	for fileName, file := range productionFiles {
 		for _, importSpec := range file.Imports {
 			importPath, err := strconv.Unquote(importSpec.Path.Value)

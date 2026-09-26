@@ -89,10 +89,10 @@ func ResolveContention(agents []Agent, preferences [][]Candidate) []*ActionInsta
 		cursors:     cursors,
 		assigned:    assigned,
 	}
-	for {
-		if !state.resolveRound() {
-			break
-		}
+	// Rounds continue until one complete round has no displacement. A
+	// displaced agent's cursor only moves forward through its finite list,
+	// so the loop terminates.
+	for state.resolveRound() {
 	}
 	return state.instances()
 }
