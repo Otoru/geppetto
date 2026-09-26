@@ -159,13 +159,27 @@
 //
 // # Ticks, preemption, and simulation detail
 //
-// Tick updates considerations first, then applies gradual deltas to the
-// current action. A completed action frees the slot in the same tick. If the
-// agent is idle and its game-owned ActionQueue is empty, the engine selects a
-// new action; otherwise it checks preemption. An action started in that tick
-// does not receive its first gradual delta until the next tick. The engine
-// never owns or consumes the queue, and it does not debit costs; those are
-// responsibilities of the integrating game.
+// Advance is the in-process entry point. Its TickRequest carries the absolute
+// simulation hour, world, desired simulation level, and optional simplified
+// event; TickResult reports the effective level and simulated duration. The
+// integrating simulation chooses the target level because only it knows
+// visibility and importance. FullTickHours and SimplifiedTickHours determine
+// the duration returned for their respective levels, falling back to the named
+// engine defaults when unset.
+//
+// Advance first expires commitments whose ExpiresAt is at or before NowHours.
+// A simplified advance records its optional event at NowHours. Returning to
+// Full applies the profile's aggregated-event effects before the detailed
+// interval. Tick then updates considerations, applies gradual deltas to the
+// current action, and clears a completed action. An idle agent dequeues the
+// next FIFO ActionQueue entry, or makes an autonomous selection when no work
+// is queued; a continuing action is then considered for preemption. A newly
+// started action therefore does not receive its first gradual delta until the
+// following interval. The engine owns queue progression through EnqueueAction,
+// while the integrating game remains responsible for enqueuing intent and
+// debiting costs. Preemption abandons the current action rather than requeueing
+// partial work; pending FIFO entries remain available after the replacement
+// action finishes.
 //
 // Preemption requires at least one consideration below its configured
 // CriticalThreshold. A player-queued action is protected unless some value
@@ -178,7 +192,6 @@
 // snapshot captured when the action was selected, so an action that was very
 // valuable when started can be deliberately difficult to interrupt.
 //
-// Full and simplified simulation levels are represented in the Agent model.
 // ApplyAggregatedEvent records coarse events while an agent is simplified;
 // TransitionToFull applies the profile's AggregatedEventEffects table to the
 // events that occurred by the target hour, clamping each resulting

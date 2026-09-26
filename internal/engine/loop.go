@@ -2,6 +2,81 @@ package engine
 
 import "math/rand/v2"
 
+// TickRequest describes one in-process Advance call. NowHours is the absolute
+// simulation hour at which expiry and aggregate-event timestamps are evaluated.
+// TargetLevel is selected by the integrating simulation; an empty value keeps
+// the agent's current level (or Full for a new agent). AggregatedEvent is
+// recorded only while the target level is Simplified.
+type TickRequest struct {
+	World           World
+	NowHours        float64
+	TargetLevel     SimulationLevel
+	AggregatedEvent *AggregatedEvent
+}
+
+// TickResult reports the effective level and simulated duration of one Advance
+// call. The caller schedules its next advance after ElapsedHours.
+type TickResult struct {
+	SimulationLevel SimulationLevel
+	ElapsedHours    float64
+}
+
+// Advance runs one complete simulation step. It first expires commitments so
+// expired restrictions cannot block this step. A simplified step records its
+// optional coarse event and returns its aggregate cadence. A transition back
+// to Full reconstructs accumulated events before the detailed tick updates
+// considerations, applies the current action, then either starts queued work
+// or selects a new action for an idle agent, or evaluates preemption for a
+// continuing action. This order lets the decision see the state produced by
+// the elapsed interval while a newly started action begins contributing on the
+// following interval.
+func Advance(agent *Agent, profile Profile, providers []AffordanceProvider, request TickRequest, rng *rand.Rand) TickResult {
+	expireNarrativeCommitments(agent, request.NowHours)
+
+	switch targetSimulationLevel(agent.SimulationLevel, request.TargetLevel) {
+	case Simplified:
+		agent.SimulationLevel = Simplified
+		if request.AggregatedEvent != nil {
+			event := *request.AggregatedEvent
+			event.AtHour = request.NowHours
+			ApplyAggregatedEvent(agent, event)
+		}
+		return TickResult{SimulationLevel: Simplified, ElapsedHours: simplifiedTickHours(profile.Tuning)}
+	default:
+		if agent.SimulationLevel == Simplified {
+			TransitionToFull(agent, request.NowHours, profile.AggregatedEventEffects)
+		} else {
+			agent.SimulationLevel = Full
+		}
+		Tick(agent, providers, request.World, fullTickHours(profile.Tuning), profile.Tuning, rng)
+		return TickResult{SimulationLevel: Full, ElapsedHours: fullTickHours(profile.Tuning)}
+	}
+}
+
+func targetSimulationLevel(current, requested SimulationLevel) SimulationLevel {
+	if requested != "" {
+		return requested
+	}
+	if current == Simplified {
+		return Simplified
+	}
+	return Full
+}
+
+func fullTickHours(tuning Tuning) float64 {
+	if tuning.FullTickHours > 0 {
+		return tuning.FullTickHours
+	}
+	return FULL_TICK_HOURS
+}
+
+func simplifiedTickHours(tuning Tuning) float64 {
+	if tuning.SimplifiedTickHours > 0 {
+		return tuning.SimplifiedTickHours
+	}
+	return SIMPLIFIED_TICK_HOURS
+}
+
 // CheckPreemption replaces the current action when a critical consideration
 // makes the best available action valuable enough to clear the configured margin.
 func CheckPreemption(agent *Agent, providers []AffordanceProvider, tuning Tuning, rng *rand.Rand) bool {
@@ -52,17 +127,49 @@ func collapseThreshold(consideration Consideration) float64 {
 	return IMMINENT_COLLAPSE_THRESHOLD
 }
 
-// Tick advances one full-detail simulation tick for agent.
+// Tick advances one detailed interval after Advance has chosen Full.
 func Tick(agent *Agent, providers []AffordanceProvider, world World, deltaHours float64, tuning Tuning, rng *rand.Rand) {
 	UpdateConsiderations(agent, world, deltaHours)
 	advanceCurrentAction(agent, deltaHours)
 
-	if agent.CurrentAction == nil && len(agent.ActionQueue) == 0 {
+	if agent.CurrentAction == nil {
+		if dequeueAction(agent) {
+			return
+		}
 		agent.CurrentAction = SelectAction(*agent, providers, tuning, rng)
 		return
 	}
 
 	CheckPreemption(agent, providers, tuning, rng)
+}
+
+// EnqueueAction appends an integrating game's explicit action request. Queued
+// actions are FIFO and protected from ordinary preemption after they start.
+func EnqueueAction(agent *Agent, action ActionInstance) {
+	action.PlayerQueued = true
+	agent.ActionQueue = append(agent.ActionQueue, action)
+}
+
+func dequeueAction(agent *Agent) bool {
+	if len(agent.ActionQueue) == 0 {
+		return false
+	}
+	next := agent.ActionQueue[0]
+	agent.ActionQueue[0] = ActionInstance{}
+	agent.ActionQueue = agent.ActionQueue[1:]
+	agent.CurrentAction = &next
+	return true
+}
+
+func expireNarrativeCommitments(agent *Agent, nowHours float64) {
+	active := agent.NarrativeCommitments[:0]
+	for _, commitment := range agent.NarrativeCommitments {
+		if commitment.ExpiresAt > 0 && commitment.ExpiresAt <= nowHours {
+			continue
+		}
+		active = append(active, commitment)
+	}
+	agent.NarrativeCommitments = active
 }
 
 func advanceCurrentAction(agent *Agent, deltaHours float64) {

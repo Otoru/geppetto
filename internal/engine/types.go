@@ -24,6 +24,10 @@ const (
 	// IMMINENT_COLLAPSE_THRESHOLD is the fallback collapse floor for a
 	// consideration without a configured CriticalThreshold.
 	IMMINENT_COLLAPSE_THRESHOLD = -90.0
+	// FULL_TICK_HOURS is the default simulated duration of a detailed tick.
+	FULL_TICK_HOURS = 1.0 / 60
+	// SIMPLIFIED_TICK_HOURS is the default simulated duration of an aggregated tick.
+	SIMPLIFIED_TICK_HOURS = 1.0
 )
 
 // Position is a three-dimensional point in world units.
@@ -137,6 +141,7 @@ const (
 )
 
 // NarrativeCommitment prevents autonomous actions with contradictory tags.
+// ExpiresAt is an absolute simulation hour; zero means the commitment does not expire.
 type NarrativeCommitment struct {
 	ID                string          `json:"id"`
 	ContradictoryTags map[string]bool `json:"contradictory_tags"`
@@ -145,10 +150,12 @@ type NarrativeCommitment struct {
 
 // Agent contains all state the engine needs to update and score one NPC.
 type Agent struct {
-	ID                   string
-	Considerations       map[string]Consideration
-	Personality          Personality
-	CurrentAction        *ActionInstance
+	ID             string
+	Considerations map[string]Consideration
+	Personality    Personality
+	CurrentAction  *ActionInstance
+	// ActionQueue holds FIFO actions supplied through EnqueueAction. The engine
+	// starts its head whenever the agent becomes idle.
 	ActionQueue          []ActionInstance
 	Position             Position
 	Capabilities         map[string]bool
@@ -236,8 +243,10 @@ type Tuning struct {
 	ConventionBreakProbability float64 `json:"convention_break_probability"`
 	// PerceptionNoise is the standard deviation of Gaussian noise applied to
 	// perception-driven considerations while scoring a decision.
-	PerceptionNoise     float64 `json:"perception_noise"`
-	FullTickHours       float64 `json:"full_tick_hours"`
+	PerceptionNoise float64 `json:"perception_noise"`
+	// FullTickHours is the simulated duration of one detailed Advance call.
+	FullTickHours float64 `json:"full_tick_hours"`
+	// SimplifiedTickHours is the simulated duration of one aggregated Advance call.
 	SimplifiedTickHours float64 `json:"simplified_tick_hours"`
 }
 
@@ -253,8 +262,8 @@ func DefaultTuning() Tuning {
 		PreemptionMargin:           PREEMPTION_MARGIN,
 		ConventionBreakProbability: 0,
 		PerceptionNoise:            0,
-		FullTickHours:              1.0 / 60,
-		SimplifiedTickHours:        1,
+		FullTickHours:              FULL_TICK_HOURS,
+		SimplifiedTickHours:        SIMPLIFIED_TICK_HOURS,
 	}
 }
 
