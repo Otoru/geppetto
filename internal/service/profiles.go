@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/vitorhugo/geppetto/internal/config"
-	profileloader "github.com/vitorhugo/geppetto/profile"
+	"github.com/Otoru/geppetto/internal/config"
+	profileloader "github.com/Otoru/geppetto/profile"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )

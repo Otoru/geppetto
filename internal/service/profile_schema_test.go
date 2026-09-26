@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	profileloader "github.com/Otoru/geppetto/profile"
 	"github.com/santhosh-tekuri/jsonschema/v6"
-	profileloader "github.com/vitorhugo/geppetto/profile"
 )
 
 // TestProfilesValidateAgainstSchema keeps configs/schema/profile.schema.json

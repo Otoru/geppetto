@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package geppetto.v1;
 
-option go_package = "github.com/vitorhugo/geppetto/internal/gen/go/geppetto/v1;gepv1";
+option go_package = "github.com/Otoru/geppetto/internal/gen/go/geppetto/v1;gepv1";
 
 // DecisionService is stateless: every decision carries the agent state needed
 // for scoring. BatchDecide is the production path; Decide is useful for tuning.

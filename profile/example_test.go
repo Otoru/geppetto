@@ -4,7 +4,7 @@ import (
 	"embed"
 	"fmt"
 
-	"github.com/vitorhugo/geppetto/profile"
+	"github.com/Otoru/geppetto/profile"
 )
 
 // profiles holds the profile documents shipped inside the game binary, the

@@ -3,8 +3,8 @@ package geppetto_test
 import (
 	"testing"
 
+	"github.com/Otoru/geppetto"
 	"github.com/stretchr/testify/require"
-	"github.com/vitorhugo/geppetto"
 )
 
 func TestDeciderUsesExplicitSeedForReproducibleDecisions(t *testing.T) {

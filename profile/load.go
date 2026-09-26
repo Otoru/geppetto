@@ -10,7 +10,7 @@ import (
 	"path"
 	"sort"
 
-	"github.com/vitorhugo/geppetto"
+	"github.com/Otoru/geppetto"
 )
 
 // ErrInvalidProfile identifies malformed or semantically incomplete profile

@@ -3,9 +3,9 @@ package transport
 import (
 	"testing"
 
+	"github.com/Otoru/geppetto/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vitorhugo/geppetto/internal/config"
 	"go.uber.org/zap"
 )
 

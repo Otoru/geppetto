@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	engine "github.com/vitorhugo/geppetto"
-	gepv1 "github.com/vitorhugo/geppetto/internal/gen/go/geppetto/v1"
+	engine "github.com/Otoru/geppetto"
+	gepv1 "github.com/Otoru/geppetto/internal/gen/go/geppetto/v1"
 	"google.golang.org/protobuf/proto"
 )
 

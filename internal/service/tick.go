@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"sort"
 
-	engine "github.com/vitorhugo/geppetto"
-	gepv1 "github.com/vitorhugo/geppetto/internal/gen/go/geppetto/v1"
+	engine "github.com/Otoru/geppetto"
+	gepv1 "github.com/Otoru/geppetto/internal/gen/go/geppetto/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

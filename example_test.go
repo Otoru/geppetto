@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/vitorhugo/geppetto"
+	"github.com/Otoru/geppetto"
 )
 
 // villageProfile is the smallest profile that still shows pressure, decay,

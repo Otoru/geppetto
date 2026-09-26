@@ -1204,7 +1204,7 @@ const file_geppetto_v1_decision_proto_rawDesc = "" +
 	"\x0fDecisionService\x12P\n" +
 	"\vBatchDecide\x12\x1f.geppetto.v1.BatchDecideRequest\x1a .geppetto.v1.BatchDecideResponse\x12A\n" +
 	"\x06Decide\x12\x1a.geppetto.v1.DecideRequest\x1a\x1b.geppetto.v1.DecideResponse\x12J\n" +
-	"\tBatchTick\x12\x1d.geppetto.v1.BatchTickRequest\x1a\x1e.geppetto.v1.BatchTickResponseBAZ?github.com/vitorhugo/geppetto/internal/gen/go/geppetto/v1;gepv1b\x06proto3"
+	"\tBatchTick\x12\x1d.geppetto.v1.BatchTickRequest\x1a\x1e.geppetto.v1.BatchTickResponseB=Z;github.com/Otoru/geppetto/internal/gen/go/geppetto/v1;gepv1b\x06proto3"
 
 var (
 	file_geppetto_v1_decision_proto_rawDescOnce sync.Once

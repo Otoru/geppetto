@@ -3,9 +3,9 @@ package geppetto_test
 import (
 	"testing"
 
+	"github.com/Otoru/geppetto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vitorhugo/geppetto"
 )
 
 // A configured Value function takes precedence over the World map, observes

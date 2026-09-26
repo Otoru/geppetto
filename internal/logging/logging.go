@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/vitorhugo/geppetto/internal/config"
+	"github.com/Otoru/geppetto/internal/config"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

@@ -1,4 +1,4 @@
-module github.com/vitorhugo/geppetto
+module github.com/Otoru/geppetto
 
 go 1.24
 

@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	engine "github.com/vitorhugo/geppetto"
-	gepv1 "github.com/vitorhugo/geppetto/internal/gen/go/geppetto/v1"
+	engine "github.com/Otoru/geppetto"
+	gepv1 "github.com/Otoru/geppetto/internal/gen/go/geppetto/v1"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"

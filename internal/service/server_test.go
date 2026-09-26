@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
+	engine "github.com/Otoru/geppetto"
+	gepv1 "github.com/Otoru/geppetto/internal/gen/go/geppetto/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	engine "github.com/vitorhugo/geppetto"
-	gepv1 "github.com/vitorhugo/geppetto/internal/gen/go/geppetto/v1"
 )
 
 func TestBatchDecide_SoABatchUsesCachedProfile(t *testing.T) {
