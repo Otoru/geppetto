@@ -114,3 +114,56 @@ func BenchmarkBatchDecideContended(b *testing.B) {
 		}
 	}
 }
+
+func benchmarkTick() *gepv1.BatchTickRequest {
+	batch := benchmarkBatch()
+	batch.ProfileId = "social-life"
+	batch.ActionIds = []string{"rest"}
+	batch.ActionProviderIndices = []uint32{0}
+	batch.ActionEstimatedDurations = []float64{1}
+	batch.ActionDomains = []string{""}
+	batch.ActionIntrinsicPriorities = []float64{0}
+	batch.ActionAdvertisementRadii = []float64{10}
+	batch.ActionTagOffsets = []uint32{0, 0}
+	batch.ActionDeltaOffsets = []uint32{0, 1}
+	batch.DeltaConsiderationIds = []string{"ENERGY"}
+	batch.DeltaValues = []float64{80}
+	current := make([]int32, len(batch.AgentIds))
+	for index := range current {
+		current[index] = -1
+	}
+	return &gepv1.BatchTickRequest{Batch: batch, CurrentActionIndices: current}
+}
+
+func BenchmarkBatchTickProtoEncode(b *testing.B) {
+	request := benchmarkTick()
+	b.ReportAllocs()
+	for b.Loop() {
+		_, _ = proto.Marshal(request)
+	}
+}
+
+func BenchmarkBatchTickProtoDecode(b *testing.B) {
+	payload, err := proto.Marshal(benchmarkTick())
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	for b.Loop() {
+		var request gepv1.BatchTickRequest
+		if err := proto.Unmarshal(payload, &request); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkBatchTick(b *testing.B) {
+	service := benchmarkService()
+	request := benchmarkTick()
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := service.BatchTick(context.Background(), request); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

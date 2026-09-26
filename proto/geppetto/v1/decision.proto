@@ -9,6 +9,15 @@ option go_package = "github.com/vitorhugo/geppetto/gen/go/geppetto/v1;gepv1";
 service DecisionService {
   rpc BatchDecide(BatchDecideRequest) returns (BatchDecideResponse);
   rpc Decide(DecideRequest) returns (DecideResponse);
+  rpc BatchTick(BatchTickRequest) returns (BatchTickResponse);
+}
+
+// SimulationLevel selects the detail mode for one tick. UNSPECIFIED in a
+// target array preserves the agent's supplied current level.
+enum SimulationLevel {
+  SIMULATION_LEVEL_UNSPECIFIED = 0;
+  SIMULATION_LEVEL_FULL = 1;
+  SIMULATION_LEVEL_SIMPLIFIED = 2;
 }
 
 message Position {
@@ -90,4 +99,87 @@ message DecideResponse {
   string action_id = 2;
   string provider_id = 3;
   double utility = 4;
+}
+
+// BatchTickRequest advances the same SoA batch representation used by
+// BatchDecide. The embedded batch supplies profile, agent positions and
+// considerations, plus the provider/action table used by selection and
+// preemption. Tick-only state remains flat and offset-delimited; there is no
+// per-agent submessage.
+//
+// Action references must index batch.action_ids. The remote form intentionally
+// does not carry arbitrary queued actions, personality, contexts, resources,
+// capabilities, custom updater functions, provider state/occupants, or action
+// preconditions/costs: those features remain available through engine.Advance
+// in-process only.
+message BatchTickRequest {
+  BatchDecideRequest batch = 1;
+  double now_hours = 2;
+
+  repeated SimulationLevel simulation_levels = 3 [packed = true];
+  repeated SimulationLevel target_simulation_levels = 4 [packed = true];
+
+  // -1 means no current action. Other arrays are aligned by agent index.
+  repeated sint32 current_action_indices = 10 [packed = true];
+  repeated double current_action_elapsed = 11 [packed = true];
+  repeated double current_action_utilities = 12 [packed = true];
+  repeated bool current_action_player_queued = 13 [packed = true];
+
+  repeated uint32 queue_action_offsets = 20 [packed = true];
+  repeated uint32 queue_action_indices = 21 [packed = true];
+  repeated double queue_action_elapsed = 22 [packed = true];
+  repeated double queue_action_utilities = 23 [packed = true];
+
+  repeated uint32 commitment_offsets = 30 [packed = true];
+  repeated string commitment_ids = 31;
+  repeated double commitment_expires_at = 32 [packed = true];
+  repeated uint32 commitment_tag_offsets = 33 [packed = true];
+  repeated string commitment_contradictory_tags = 34;
+
+  repeated uint32 aggregated_event_offsets = 40 [packed = true];
+  repeated string aggregated_event_kinds = 41;
+  repeated double aggregated_event_hours = 42 [packed = true];
+  repeated string new_aggregated_event_kinds = 43;
+
+  repeated uint32 perception_offsets = 50 [packed = true];
+  repeated string perception_ids = 51;
+  repeated double perception_values = 52 [packed = true];
+  repeated uint32 relationship_offsets = 53 [packed = true];
+  repeated string relationship_ids = 54;
+  repeated double relationship_values = 55 [packed = true];
+  repeated uint32 context_offsets = 56 [packed = true];
+  repeated string context_ids = 57;
+  repeated double context_values = 58 [packed = true];
+}
+
+// BatchTickResponse contains only mutations. A client already owns the state
+// it sent, so unchanged agents and unchanged fields are omitted.
+message BatchTickResponse {
+  repeated uint32 consideration_change_agent_indices = 1 [packed = true];
+  repeated uint32 consideration_change_offsets = 2 [packed = true];
+  repeated uint32 changed_consideration_indices = 3 [packed = true];
+  repeated double changed_consideration_values = 4 [packed = true];
+
+  repeated uint32 action_change_agent_indices = 10 [packed = true];
+  repeated sint32 current_action_indices = 11 [packed = true];
+  repeated double current_action_elapsed = 12 [packed = true];
+  repeated double current_action_utilities = 13 [packed = true];
+  repeated bool current_action_player_queued = 14 [packed = true];
+
+  repeated uint32 queue_change_agent_indices = 20 [packed = true];
+  repeated uint32 queue_change_offsets = 21 [packed = true];
+  repeated sint32 queue_action_indices = 22 [packed = true];
+  repeated double queue_action_elapsed = 23 [packed = true];
+  repeated double queue_action_utilities = 24 [packed = true];
+
+  repeated uint32 commitment_change_agent_indices = 30 [packed = true];
+  repeated uint32 commitment_change_offsets = 31 [packed = true];
+  repeated string commitment_ids = 32;
+  repeated double commitment_expires_at = 33 [packed = true];
+  repeated uint32 commitment_tag_offsets = 34 [packed = true];
+  repeated string commitment_contradictory_tags = 35;
+
+  repeated uint32 simulation_level_change_agent_indices = 40 [packed = true];
+  repeated SimulationLevel simulation_levels = 41 [packed = true];
+  repeated uint32 aggregated_event_clear_agent_indices = 42 [packed = true];
 }

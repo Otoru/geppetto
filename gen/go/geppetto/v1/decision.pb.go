@@ -21,6 +21,57 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// SimulationLevel selects the detail mode for one tick. UNSPECIFIED in a
+// target array preserves the agent's supplied current level.
+type SimulationLevel int32
+
+const (
+	SimulationLevel_SIMULATION_LEVEL_UNSPECIFIED SimulationLevel = 0
+	SimulationLevel_SIMULATION_LEVEL_FULL        SimulationLevel = 1
+	SimulationLevel_SIMULATION_LEVEL_SIMPLIFIED  SimulationLevel = 2
+)
+
+// Enum value maps for SimulationLevel.
+var (
+	SimulationLevel_name = map[int32]string{
+		0: "SIMULATION_LEVEL_UNSPECIFIED",
+		1: "SIMULATION_LEVEL_FULL",
+		2: "SIMULATION_LEVEL_SIMPLIFIED",
+	}
+	SimulationLevel_value = map[string]int32{
+		"SIMULATION_LEVEL_UNSPECIFIED": 0,
+		"SIMULATION_LEVEL_FULL":        1,
+		"SIMULATION_LEVEL_SIMPLIFIED":  2,
+	}
+)
+
+func (x SimulationLevel) Enum() *SimulationLevel {
+	p := new(SimulationLevel)
+	*p = x
+	return p
+}
+
+func (x SimulationLevel) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SimulationLevel) Descriptor() protoreflect.EnumDescriptor {
+	return file_geppetto_v1_decision_proto_enumTypes[0].Descriptor()
+}
+
+func (SimulationLevel) Type() protoreflect.EnumType {
+	return &file_geppetto_v1_decision_proto_enumTypes[0]
+}
+
+func (x SimulationLevel) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SimulationLevel.Descriptor instead.
+func (SimulationLevel) EnumDescriptor() ([]byte, []int) {
+	return file_geppetto_v1_decision_proto_rawDescGZIP(), []int{0}
+}
+
 type Position struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	X             float64                `protobuf:"fixed64,1,opt,name=x,proto3" json:"x,omitempty"`
@@ -522,6 +573,516 @@ func (x *DecideResponse) GetUtility() float64 {
 	return 0
 }
 
+// BatchTickRequest advances the same SoA batch representation used by
+// BatchDecide. The embedded batch supplies profile, agent positions and
+// considerations, plus the provider/action table used by selection and
+// preemption. Tick-only state remains flat and offset-delimited; there is no
+// per-agent submessage.
+//
+// Action references must index batch.action_ids. The remote form intentionally
+// does not carry arbitrary queued actions, personality, contexts, resources,
+// capabilities, custom updater functions, provider state/occupants, or action
+// preconditions/costs: those features remain available through engine.Advance
+// in-process only.
+type BatchTickRequest struct {
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Batch                  *BatchDecideRequest    `protobuf:"bytes,1,opt,name=batch,proto3" json:"batch,omitempty"`
+	NowHours               float64                `protobuf:"fixed64,2,opt,name=now_hours,json=nowHours,proto3" json:"now_hours,omitempty"`
+	SimulationLevels       []SimulationLevel      `protobuf:"varint,3,rep,packed,name=simulation_levels,json=simulationLevels,proto3,enum=geppetto.v1.SimulationLevel" json:"simulation_levels,omitempty"`
+	TargetSimulationLevels []SimulationLevel      `protobuf:"varint,4,rep,packed,name=target_simulation_levels,json=targetSimulationLevels,proto3,enum=geppetto.v1.SimulationLevel" json:"target_simulation_levels,omitempty"`
+	// -1 means no current action. Other arrays are aligned by agent index.
+	CurrentActionIndices        []int32   `protobuf:"zigzag32,10,rep,packed,name=current_action_indices,json=currentActionIndices,proto3" json:"current_action_indices,omitempty"`
+	CurrentActionElapsed        []float64 `protobuf:"fixed64,11,rep,packed,name=current_action_elapsed,json=currentActionElapsed,proto3" json:"current_action_elapsed,omitempty"`
+	CurrentActionUtilities      []float64 `protobuf:"fixed64,12,rep,packed,name=current_action_utilities,json=currentActionUtilities,proto3" json:"current_action_utilities,omitempty"`
+	CurrentActionPlayerQueued   []bool    `protobuf:"varint,13,rep,packed,name=current_action_player_queued,json=currentActionPlayerQueued,proto3" json:"current_action_player_queued,omitempty"`
+	QueueActionOffsets          []uint32  `protobuf:"varint,20,rep,packed,name=queue_action_offsets,json=queueActionOffsets,proto3" json:"queue_action_offsets,omitempty"`
+	QueueActionIndices          []uint32  `protobuf:"varint,21,rep,packed,name=queue_action_indices,json=queueActionIndices,proto3" json:"queue_action_indices,omitempty"`
+	QueueActionElapsed          []float64 `protobuf:"fixed64,22,rep,packed,name=queue_action_elapsed,json=queueActionElapsed,proto3" json:"queue_action_elapsed,omitempty"`
+	QueueActionUtilities        []float64 `protobuf:"fixed64,23,rep,packed,name=queue_action_utilities,json=queueActionUtilities,proto3" json:"queue_action_utilities,omitempty"`
+	CommitmentOffsets           []uint32  `protobuf:"varint,30,rep,packed,name=commitment_offsets,json=commitmentOffsets,proto3" json:"commitment_offsets,omitempty"`
+	CommitmentIds               []string  `protobuf:"bytes,31,rep,name=commitment_ids,json=commitmentIds,proto3" json:"commitment_ids,omitempty"`
+	CommitmentExpiresAt         []float64 `protobuf:"fixed64,32,rep,packed,name=commitment_expires_at,json=commitmentExpiresAt,proto3" json:"commitment_expires_at,omitempty"`
+	CommitmentTagOffsets        []uint32  `protobuf:"varint,33,rep,packed,name=commitment_tag_offsets,json=commitmentTagOffsets,proto3" json:"commitment_tag_offsets,omitempty"`
+	CommitmentContradictoryTags []string  `protobuf:"bytes,34,rep,name=commitment_contradictory_tags,json=commitmentContradictoryTags,proto3" json:"commitment_contradictory_tags,omitempty"`
+	AggregatedEventOffsets      []uint32  `protobuf:"varint,40,rep,packed,name=aggregated_event_offsets,json=aggregatedEventOffsets,proto3" json:"aggregated_event_offsets,omitempty"`
+	AggregatedEventKinds        []string  `protobuf:"bytes,41,rep,name=aggregated_event_kinds,json=aggregatedEventKinds,proto3" json:"aggregated_event_kinds,omitempty"`
+	AggregatedEventHours        []float64 `protobuf:"fixed64,42,rep,packed,name=aggregated_event_hours,json=aggregatedEventHours,proto3" json:"aggregated_event_hours,omitempty"`
+	NewAggregatedEventKinds     []string  `protobuf:"bytes,43,rep,name=new_aggregated_event_kinds,json=newAggregatedEventKinds,proto3" json:"new_aggregated_event_kinds,omitempty"`
+	PerceptionOffsets           []uint32  `protobuf:"varint,50,rep,packed,name=perception_offsets,json=perceptionOffsets,proto3" json:"perception_offsets,omitempty"`
+	PerceptionIds               []string  `protobuf:"bytes,51,rep,name=perception_ids,json=perceptionIds,proto3" json:"perception_ids,omitempty"`
+	PerceptionValues            []float64 `protobuf:"fixed64,52,rep,packed,name=perception_values,json=perceptionValues,proto3" json:"perception_values,omitempty"`
+	RelationshipOffsets         []uint32  `protobuf:"varint,53,rep,packed,name=relationship_offsets,json=relationshipOffsets,proto3" json:"relationship_offsets,omitempty"`
+	RelationshipIds             []string  `protobuf:"bytes,54,rep,name=relationship_ids,json=relationshipIds,proto3" json:"relationship_ids,omitempty"`
+	RelationshipValues          []float64 `protobuf:"fixed64,55,rep,packed,name=relationship_values,json=relationshipValues,proto3" json:"relationship_values,omitempty"`
+	ContextOffsets              []uint32  `protobuf:"varint,56,rep,packed,name=context_offsets,json=contextOffsets,proto3" json:"context_offsets,omitempty"`
+	ContextIds                  []string  `protobuf:"bytes,57,rep,name=context_ids,json=contextIds,proto3" json:"context_ids,omitempty"`
+	ContextValues               []float64 `protobuf:"fixed64,58,rep,packed,name=context_values,json=contextValues,proto3" json:"context_values,omitempty"`
+	unknownFields               protoimpl.UnknownFields
+	sizeCache                   protoimpl.SizeCache
+}
+
+func (x *BatchTickRequest) Reset() {
+	*x = BatchTickRequest{}
+	mi := &file_geppetto_v1_decision_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchTickRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchTickRequest) ProtoMessage() {}
+
+func (x *BatchTickRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_geppetto_v1_decision_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchTickRequest.ProtoReflect.Descriptor instead.
+func (*BatchTickRequest) Descriptor() ([]byte, []int) {
+	return file_geppetto_v1_decision_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *BatchTickRequest) GetBatch() *BatchDecideRequest {
+	if x != nil {
+		return x.Batch
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetNowHours() float64 {
+	if x != nil {
+		return x.NowHours
+	}
+	return 0
+}
+
+func (x *BatchTickRequest) GetSimulationLevels() []SimulationLevel {
+	if x != nil {
+		return x.SimulationLevels
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetTargetSimulationLevels() []SimulationLevel {
+	if x != nil {
+		return x.TargetSimulationLevels
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetCurrentActionIndices() []int32 {
+	if x != nil {
+		return x.CurrentActionIndices
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetCurrentActionElapsed() []float64 {
+	if x != nil {
+		return x.CurrentActionElapsed
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetCurrentActionUtilities() []float64 {
+	if x != nil {
+		return x.CurrentActionUtilities
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetCurrentActionPlayerQueued() []bool {
+	if x != nil {
+		return x.CurrentActionPlayerQueued
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetQueueActionOffsets() []uint32 {
+	if x != nil {
+		return x.QueueActionOffsets
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetQueueActionIndices() []uint32 {
+	if x != nil {
+		return x.QueueActionIndices
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetQueueActionElapsed() []float64 {
+	if x != nil {
+		return x.QueueActionElapsed
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetQueueActionUtilities() []float64 {
+	if x != nil {
+		return x.QueueActionUtilities
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetCommitmentOffsets() []uint32 {
+	if x != nil {
+		return x.CommitmentOffsets
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetCommitmentIds() []string {
+	if x != nil {
+		return x.CommitmentIds
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetCommitmentExpiresAt() []float64 {
+	if x != nil {
+		return x.CommitmentExpiresAt
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetCommitmentTagOffsets() []uint32 {
+	if x != nil {
+		return x.CommitmentTagOffsets
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetCommitmentContradictoryTags() []string {
+	if x != nil {
+		return x.CommitmentContradictoryTags
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetAggregatedEventOffsets() []uint32 {
+	if x != nil {
+		return x.AggregatedEventOffsets
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetAggregatedEventKinds() []string {
+	if x != nil {
+		return x.AggregatedEventKinds
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetAggregatedEventHours() []float64 {
+	if x != nil {
+		return x.AggregatedEventHours
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetNewAggregatedEventKinds() []string {
+	if x != nil {
+		return x.NewAggregatedEventKinds
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetPerceptionOffsets() []uint32 {
+	if x != nil {
+		return x.PerceptionOffsets
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetPerceptionIds() []string {
+	if x != nil {
+		return x.PerceptionIds
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetPerceptionValues() []float64 {
+	if x != nil {
+		return x.PerceptionValues
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetRelationshipOffsets() []uint32 {
+	if x != nil {
+		return x.RelationshipOffsets
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetRelationshipIds() []string {
+	if x != nil {
+		return x.RelationshipIds
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetRelationshipValues() []float64 {
+	if x != nil {
+		return x.RelationshipValues
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetContextOffsets() []uint32 {
+	if x != nil {
+		return x.ContextOffsets
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetContextIds() []string {
+	if x != nil {
+		return x.ContextIds
+	}
+	return nil
+}
+
+func (x *BatchTickRequest) GetContextValues() []float64 {
+	if x != nil {
+		return x.ContextValues
+	}
+	return nil
+}
+
+// BatchTickResponse contains only mutations. A client already owns the state
+// it sent, so unchanged agents and unchanged fields are omitted.
+type BatchTickResponse struct {
+	state                             protoimpl.MessageState `protogen:"open.v1"`
+	ConsiderationChangeAgentIndices   []uint32               `protobuf:"varint,1,rep,packed,name=consideration_change_agent_indices,json=considerationChangeAgentIndices,proto3" json:"consideration_change_agent_indices,omitempty"`
+	ConsiderationChangeOffsets        []uint32               `protobuf:"varint,2,rep,packed,name=consideration_change_offsets,json=considerationChangeOffsets,proto3" json:"consideration_change_offsets,omitempty"`
+	ChangedConsiderationIndices       []uint32               `protobuf:"varint,3,rep,packed,name=changed_consideration_indices,json=changedConsiderationIndices,proto3" json:"changed_consideration_indices,omitempty"`
+	ChangedConsiderationValues        []float64              `protobuf:"fixed64,4,rep,packed,name=changed_consideration_values,json=changedConsiderationValues,proto3" json:"changed_consideration_values,omitempty"`
+	ActionChangeAgentIndices          []uint32               `protobuf:"varint,10,rep,packed,name=action_change_agent_indices,json=actionChangeAgentIndices,proto3" json:"action_change_agent_indices,omitempty"`
+	CurrentActionIndices              []int32                `protobuf:"zigzag32,11,rep,packed,name=current_action_indices,json=currentActionIndices,proto3" json:"current_action_indices,omitempty"`
+	CurrentActionElapsed              []float64              `protobuf:"fixed64,12,rep,packed,name=current_action_elapsed,json=currentActionElapsed,proto3" json:"current_action_elapsed,omitempty"`
+	CurrentActionUtilities            []float64              `protobuf:"fixed64,13,rep,packed,name=current_action_utilities,json=currentActionUtilities,proto3" json:"current_action_utilities,omitempty"`
+	CurrentActionPlayerQueued         []bool                 `protobuf:"varint,14,rep,packed,name=current_action_player_queued,json=currentActionPlayerQueued,proto3" json:"current_action_player_queued,omitempty"`
+	QueueChangeAgentIndices           []uint32               `protobuf:"varint,20,rep,packed,name=queue_change_agent_indices,json=queueChangeAgentIndices,proto3" json:"queue_change_agent_indices,omitempty"`
+	QueueChangeOffsets                []uint32               `protobuf:"varint,21,rep,packed,name=queue_change_offsets,json=queueChangeOffsets,proto3" json:"queue_change_offsets,omitempty"`
+	QueueActionIndices                []int32                `protobuf:"zigzag32,22,rep,packed,name=queue_action_indices,json=queueActionIndices,proto3" json:"queue_action_indices,omitempty"`
+	QueueActionElapsed                []float64              `protobuf:"fixed64,23,rep,packed,name=queue_action_elapsed,json=queueActionElapsed,proto3" json:"queue_action_elapsed,omitempty"`
+	QueueActionUtilities              []float64              `protobuf:"fixed64,24,rep,packed,name=queue_action_utilities,json=queueActionUtilities,proto3" json:"queue_action_utilities,omitempty"`
+	CommitmentChangeAgentIndices      []uint32               `protobuf:"varint,30,rep,packed,name=commitment_change_agent_indices,json=commitmentChangeAgentIndices,proto3" json:"commitment_change_agent_indices,omitempty"`
+	CommitmentChangeOffsets           []uint32               `protobuf:"varint,31,rep,packed,name=commitment_change_offsets,json=commitmentChangeOffsets,proto3" json:"commitment_change_offsets,omitempty"`
+	CommitmentIds                     []string               `protobuf:"bytes,32,rep,name=commitment_ids,json=commitmentIds,proto3" json:"commitment_ids,omitempty"`
+	CommitmentExpiresAt               []float64              `protobuf:"fixed64,33,rep,packed,name=commitment_expires_at,json=commitmentExpiresAt,proto3" json:"commitment_expires_at,omitempty"`
+	CommitmentTagOffsets              []uint32               `protobuf:"varint,34,rep,packed,name=commitment_tag_offsets,json=commitmentTagOffsets,proto3" json:"commitment_tag_offsets,omitempty"`
+	CommitmentContradictoryTags       []string               `protobuf:"bytes,35,rep,name=commitment_contradictory_tags,json=commitmentContradictoryTags,proto3" json:"commitment_contradictory_tags,omitempty"`
+	SimulationLevelChangeAgentIndices []uint32               `protobuf:"varint,40,rep,packed,name=simulation_level_change_agent_indices,json=simulationLevelChangeAgentIndices,proto3" json:"simulation_level_change_agent_indices,omitempty"`
+	SimulationLevels                  []SimulationLevel      `protobuf:"varint,41,rep,packed,name=simulation_levels,json=simulationLevels,proto3,enum=geppetto.v1.SimulationLevel" json:"simulation_levels,omitempty"`
+	AggregatedEventClearAgentIndices  []uint32               `protobuf:"varint,42,rep,packed,name=aggregated_event_clear_agent_indices,json=aggregatedEventClearAgentIndices,proto3" json:"aggregated_event_clear_agent_indices,omitempty"`
+	unknownFields                     protoimpl.UnknownFields
+	sizeCache                         protoimpl.SizeCache
+}
+
+func (x *BatchTickResponse) Reset() {
+	*x = BatchTickResponse{}
+	mi := &file_geppetto_v1_decision_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchTickResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchTickResponse) ProtoMessage() {}
+
+func (x *BatchTickResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_geppetto_v1_decision_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchTickResponse.ProtoReflect.Descriptor instead.
+func (*BatchTickResponse) Descriptor() ([]byte, []int) {
+	return file_geppetto_v1_decision_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *BatchTickResponse) GetConsiderationChangeAgentIndices() []uint32 {
+	if x != nil {
+		return x.ConsiderationChangeAgentIndices
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetConsiderationChangeOffsets() []uint32 {
+	if x != nil {
+		return x.ConsiderationChangeOffsets
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetChangedConsiderationIndices() []uint32 {
+	if x != nil {
+		return x.ChangedConsiderationIndices
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetChangedConsiderationValues() []float64 {
+	if x != nil {
+		return x.ChangedConsiderationValues
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetActionChangeAgentIndices() []uint32 {
+	if x != nil {
+		return x.ActionChangeAgentIndices
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetCurrentActionIndices() []int32 {
+	if x != nil {
+		return x.CurrentActionIndices
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetCurrentActionElapsed() []float64 {
+	if x != nil {
+		return x.CurrentActionElapsed
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetCurrentActionUtilities() []float64 {
+	if x != nil {
+		return x.CurrentActionUtilities
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetCurrentActionPlayerQueued() []bool {
+	if x != nil {
+		return x.CurrentActionPlayerQueued
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetQueueChangeAgentIndices() []uint32 {
+	if x != nil {
+		return x.QueueChangeAgentIndices
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetQueueChangeOffsets() []uint32 {
+	if x != nil {
+		return x.QueueChangeOffsets
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetQueueActionIndices() []int32 {
+	if x != nil {
+		return x.QueueActionIndices
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetQueueActionElapsed() []float64 {
+	if x != nil {
+		return x.QueueActionElapsed
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetQueueActionUtilities() []float64 {
+	if x != nil {
+		return x.QueueActionUtilities
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetCommitmentChangeAgentIndices() []uint32 {
+	if x != nil {
+		return x.CommitmentChangeAgentIndices
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetCommitmentChangeOffsets() []uint32 {
+	if x != nil {
+		return x.CommitmentChangeOffsets
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetCommitmentIds() []string {
+	if x != nil {
+		return x.CommitmentIds
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetCommitmentExpiresAt() []float64 {
+	if x != nil {
+		return x.CommitmentExpiresAt
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetCommitmentTagOffsets() []uint32 {
+	if x != nil {
+		return x.CommitmentTagOffsets
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetCommitmentContradictoryTags() []string {
+	if x != nil {
+		return x.CommitmentContradictoryTags
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetSimulationLevelChangeAgentIndices() []uint32 {
+	if x != nil {
+		return x.SimulationLevelChangeAgentIndices
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetSimulationLevels() []SimulationLevel {
+	if x != nil {
+		return x.SimulationLevels
+	}
+	return nil
+}
+
+func (x *BatchTickResponse) GetAggregatedEventClearAgentIndices() []uint32 {
+	if x != nil {
+		return x.AggregatedEventClearAgentIndices
+	}
+	return nil
+}
+
 var File_geppetto_v1_decision_proto protoreflect.FileDescriptor
 
 const file_geppetto_v1_decision_proto_rawDesc = "" +
@@ -577,10 +1138,73 @@ const file_geppetto_v1_decision_proto_rawDesc = "" +
 	"\taction_id\x18\x02 \x01(\tR\bactionId\x12\x1f\n" +
 	"\vprovider_id\x18\x03 \x01(\tR\n" +
 	"providerId\x12\x18\n" +
-	"\autility\x18\x04 \x01(\x01R\autility2\xa6\x01\n" +
+	"\autility\x18\x04 \x01(\x01R\autility\"\xfa\f\n" +
+	"\x10BatchTickRequest\x125\n" +
+	"\x05batch\x18\x01 \x01(\v2\x1f.geppetto.v1.BatchDecideRequestR\x05batch\x12\x1b\n" +
+	"\tnow_hours\x18\x02 \x01(\x01R\bnowHours\x12M\n" +
+	"\x11simulation_levels\x18\x03 \x03(\x0e2\x1c.geppetto.v1.SimulationLevelB\x02\x10\x01R\x10simulationLevels\x12Z\n" +
+	"\x18target_simulation_levels\x18\x04 \x03(\x0e2\x1c.geppetto.v1.SimulationLevelB\x02\x10\x01R\x16targetSimulationLevels\x128\n" +
+	"\x16current_action_indices\x18\n" +
+	" \x03(\x11B\x02\x10\x01R\x14currentActionIndices\x128\n" +
+	"\x16current_action_elapsed\x18\v \x03(\x01B\x02\x10\x01R\x14currentActionElapsed\x12<\n" +
+	"\x18current_action_utilities\x18\f \x03(\x01B\x02\x10\x01R\x16currentActionUtilities\x12C\n" +
+	"\x1ccurrent_action_player_queued\x18\r \x03(\bB\x02\x10\x01R\x19currentActionPlayerQueued\x124\n" +
+	"\x14queue_action_offsets\x18\x14 \x03(\rB\x02\x10\x01R\x12queueActionOffsets\x124\n" +
+	"\x14queue_action_indices\x18\x15 \x03(\rB\x02\x10\x01R\x12queueActionIndices\x124\n" +
+	"\x14queue_action_elapsed\x18\x16 \x03(\x01B\x02\x10\x01R\x12queueActionElapsed\x128\n" +
+	"\x16queue_action_utilities\x18\x17 \x03(\x01B\x02\x10\x01R\x14queueActionUtilities\x121\n" +
+	"\x12commitment_offsets\x18\x1e \x03(\rB\x02\x10\x01R\x11commitmentOffsets\x12%\n" +
+	"\x0ecommitment_ids\x18\x1f \x03(\tR\rcommitmentIds\x126\n" +
+	"\x15commitment_expires_at\x18  \x03(\x01B\x02\x10\x01R\x13commitmentExpiresAt\x128\n" +
+	"\x16commitment_tag_offsets\x18! \x03(\rB\x02\x10\x01R\x14commitmentTagOffsets\x12B\n" +
+	"\x1dcommitment_contradictory_tags\x18\" \x03(\tR\x1bcommitmentContradictoryTags\x12<\n" +
+	"\x18aggregated_event_offsets\x18( \x03(\rB\x02\x10\x01R\x16aggregatedEventOffsets\x124\n" +
+	"\x16aggregated_event_kinds\x18) \x03(\tR\x14aggregatedEventKinds\x128\n" +
+	"\x16aggregated_event_hours\x18* \x03(\x01B\x02\x10\x01R\x14aggregatedEventHours\x12;\n" +
+	"\x1anew_aggregated_event_kinds\x18+ \x03(\tR\x17newAggregatedEventKinds\x121\n" +
+	"\x12perception_offsets\x182 \x03(\rB\x02\x10\x01R\x11perceptionOffsets\x12%\n" +
+	"\x0eperception_ids\x183 \x03(\tR\rperceptionIds\x12/\n" +
+	"\x11perception_values\x184 \x03(\x01B\x02\x10\x01R\x10perceptionValues\x125\n" +
+	"\x14relationship_offsets\x185 \x03(\rB\x02\x10\x01R\x13relationshipOffsets\x12)\n" +
+	"\x10relationship_ids\x186 \x03(\tR\x0frelationshipIds\x123\n" +
+	"\x13relationship_values\x187 \x03(\x01B\x02\x10\x01R\x12relationshipValues\x12+\n" +
+	"\x0fcontext_offsets\x188 \x03(\rB\x02\x10\x01R\x0econtextOffsets\x12\x1f\n" +
+	"\vcontext_ids\x189 \x03(\tR\n" +
+	"contextIds\x12)\n" +
+	"\x0econtext_values\x18: \x03(\x01B\x02\x10\x01R\rcontextValues\"\xf0\v\n" +
+	"\x11BatchTickResponse\x12O\n" +
+	"\"consideration_change_agent_indices\x18\x01 \x03(\rB\x02\x10\x01R\x1fconsiderationChangeAgentIndices\x12D\n" +
+	"\x1cconsideration_change_offsets\x18\x02 \x03(\rB\x02\x10\x01R\x1aconsiderationChangeOffsets\x12F\n" +
+	"\x1dchanged_consideration_indices\x18\x03 \x03(\rB\x02\x10\x01R\x1bchangedConsiderationIndices\x12D\n" +
+	"\x1cchanged_consideration_values\x18\x04 \x03(\x01B\x02\x10\x01R\x1achangedConsiderationValues\x12A\n" +
+	"\x1baction_change_agent_indices\x18\n" +
+	" \x03(\rB\x02\x10\x01R\x18actionChangeAgentIndices\x128\n" +
+	"\x16current_action_indices\x18\v \x03(\x11B\x02\x10\x01R\x14currentActionIndices\x128\n" +
+	"\x16current_action_elapsed\x18\f \x03(\x01B\x02\x10\x01R\x14currentActionElapsed\x12<\n" +
+	"\x18current_action_utilities\x18\r \x03(\x01B\x02\x10\x01R\x16currentActionUtilities\x12C\n" +
+	"\x1ccurrent_action_player_queued\x18\x0e \x03(\bB\x02\x10\x01R\x19currentActionPlayerQueued\x12?\n" +
+	"\x1aqueue_change_agent_indices\x18\x14 \x03(\rB\x02\x10\x01R\x17queueChangeAgentIndices\x124\n" +
+	"\x14queue_change_offsets\x18\x15 \x03(\rB\x02\x10\x01R\x12queueChangeOffsets\x124\n" +
+	"\x14queue_action_indices\x18\x16 \x03(\x11B\x02\x10\x01R\x12queueActionIndices\x124\n" +
+	"\x14queue_action_elapsed\x18\x17 \x03(\x01B\x02\x10\x01R\x12queueActionElapsed\x128\n" +
+	"\x16queue_action_utilities\x18\x18 \x03(\x01B\x02\x10\x01R\x14queueActionUtilities\x12I\n" +
+	"\x1fcommitment_change_agent_indices\x18\x1e \x03(\rB\x02\x10\x01R\x1ccommitmentChangeAgentIndices\x12>\n" +
+	"\x19commitment_change_offsets\x18\x1f \x03(\rB\x02\x10\x01R\x17commitmentChangeOffsets\x12%\n" +
+	"\x0ecommitment_ids\x18  \x03(\tR\rcommitmentIds\x126\n" +
+	"\x15commitment_expires_at\x18! \x03(\x01B\x02\x10\x01R\x13commitmentExpiresAt\x128\n" +
+	"\x16commitment_tag_offsets\x18\" \x03(\rB\x02\x10\x01R\x14commitmentTagOffsets\x12B\n" +
+	"\x1dcommitment_contradictory_tags\x18# \x03(\tR\x1bcommitmentContradictoryTags\x12T\n" +
+	"%simulation_level_change_agent_indices\x18( \x03(\rB\x02\x10\x01R!simulationLevelChangeAgentIndices\x12M\n" +
+	"\x11simulation_levels\x18) \x03(\x0e2\x1c.geppetto.v1.SimulationLevelB\x02\x10\x01R\x10simulationLevels\x12R\n" +
+	"$aggregated_event_clear_agent_indices\x18* \x03(\rB\x02\x10\x01R aggregatedEventClearAgentIndices*o\n" +
+	"\x0fSimulationLevel\x12 \n" +
+	"\x1cSIMULATION_LEVEL_UNSPECIFIED\x10\x00\x12\x19\n" +
+	"\x15SIMULATION_LEVEL_FULL\x10\x01\x12\x1f\n" +
+	"\x1bSIMULATION_LEVEL_SIMPLIFIED\x10\x022\xf2\x01\n" +
 	"\x0fDecisionService\x12P\n" +
 	"\vBatchDecide\x12\x1f.geppetto.v1.BatchDecideRequest\x1a .geppetto.v1.BatchDecideResponse\x12A\n" +
-	"\x06Decide\x12\x1a.geppetto.v1.DecideRequest\x1a\x1b.geppetto.v1.DecideResponseB8Z6github.com/vitorhugo/geppetto/gen/go/geppetto/v1;gepv1b\x06proto3"
+	"\x06Decide\x12\x1a.geppetto.v1.DecideRequest\x1a\x1b.geppetto.v1.DecideResponse\x12J\n" +
+	"\tBatchTick\x12\x1d.geppetto.v1.BatchTickRequest\x1a\x1e.geppetto.v1.BatchTickResponseB8Z6github.com/vitorhugo/geppetto/gen/go/geppetto/v1;gepv1b\x06proto3"
 
 var (
 	file_geppetto_v1_decision_proto_rawDescOnce sync.Once
@@ -594,25 +1218,35 @@ func file_geppetto_v1_decision_proto_rawDescGZIP() []byte {
 	return file_geppetto_v1_decision_proto_rawDescData
 }
 
-var file_geppetto_v1_decision_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_geppetto_v1_decision_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_geppetto_v1_decision_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_geppetto_v1_decision_proto_goTypes = []any{
-	(*Position)(nil),            // 0: geppetto.v1.Position
-	(*BatchDecideRequest)(nil),  // 1: geppetto.v1.BatchDecideRequest
-	(*BatchDecideResponse)(nil), // 2: geppetto.v1.BatchDecideResponse
-	(*DecideRequest)(nil),       // 3: geppetto.v1.DecideRequest
-	(*DecideResponse)(nil),      // 4: geppetto.v1.DecideResponse
+	(SimulationLevel)(0),        // 0: geppetto.v1.SimulationLevel
+	(*Position)(nil),            // 1: geppetto.v1.Position
+	(*BatchDecideRequest)(nil),  // 2: geppetto.v1.BatchDecideRequest
+	(*BatchDecideResponse)(nil), // 3: geppetto.v1.BatchDecideResponse
+	(*DecideRequest)(nil),       // 4: geppetto.v1.DecideRequest
+	(*DecideResponse)(nil),      // 5: geppetto.v1.DecideResponse
+	(*BatchTickRequest)(nil),    // 6: geppetto.v1.BatchTickRequest
+	(*BatchTickResponse)(nil),   // 7: geppetto.v1.BatchTickResponse
 }
 var file_geppetto_v1_decision_proto_depIdxs = []int32{
-	1, // 0: geppetto.v1.DecideRequest.batch:type_name -> geppetto.v1.BatchDecideRequest
-	1, // 1: geppetto.v1.DecisionService.BatchDecide:input_type -> geppetto.v1.BatchDecideRequest
-	3, // 2: geppetto.v1.DecisionService.Decide:input_type -> geppetto.v1.DecideRequest
-	2, // 3: geppetto.v1.DecisionService.BatchDecide:output_type -> geppetto.v1.BatchDecideResponse
-	4, // 4: geppetto.v1.DecisionService.Decide:output_type -> geppetto.v1.DecideResponse
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 0: geppetto.v1.DecideRequest.batch:type_name -> geppetto.v1.BatchDecideRequest
+	2, // 1: geppetto.v1.BatchTickRequest.batch:type_name -> geppetto.v1.BatchDecideRequest
+	0, // 2: geppetto.v1.BatchTickRequest.simulation_levels:type_name -> geppetto.v1.SimulationLevel
+	0, // 3: geppetto.v1.BatchTickRequest.target_simulation_levels:type_name -> geppetto.v1.SimulationLevel
+	0, // 4: geppetto.v1.BatchTickResponse.simulation_levels:type_name -> geppetto.v1.SimulationLevel
+	2, // 5: geppetto.v1.DecisionService.BatchDecide:input_type -> geppetto.v1.BatchDecideRequest
+	4, // 6: geppetto.v1.DecisionService.Decide:input_type -> geppetto.v1.DecideRequest
+	6, // 7: geppetto.v1.DecisionService.BatchTick:input_type -> geppetto.v1.BatchTickRequest
+	3, // 8: geppetto.v1.DecisionService.BatchDecide:output_type -> geppetto.v1.BatchDecideResponse
+	5, // 9: geppetto.v1.DecisionService.Decide:output_type -> geppetto.v1.DecideResponse
+	7, // 10: geppetto.v1.DecisionService.BatchTick:output_type -> geppetto.v1.BatchTickResponse
+	8, // [8:11] is the sub-list for method output_type
+	5, // [5:8] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_geppetto_v1_decision_proto_init() }
@@ -625,13 +1259,14 @@ func file_geppetto_v1_decision_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_geppetto_v1_decision_proto_rawDesc), len(file_geppetto_v1_decision_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   5,
+			NumEnums:      1,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_geppetto_v1_decision_proto_goTypes,
 		DependencyIndexes: file_geppetto_v1_decision_proto_depIdxs,
+		EnumInfos:         file_geppetto_v1_decision_proto_enumTypes,
 		MessageInfos:      file_geppetto_v1_decision_proto_msgTypes,
 	}.Build()
 	File_geppetto_v1_decision_proto = out.File

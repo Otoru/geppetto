@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	DecisionService_BatchDecide_FullMethodName = "/geppetto.v1.DecisionService/BatchDecide"
 	DecisionService_Decide_FullMethodName      = "/geppetto.v1.DecisionService/Decide"
+	DecisionService_BatchTick_FullMethodName   = "/geppetto.v1.DecisionService/BatchTick"
 )
 
 // DecisionServiceClient is the client API for DecisionService service.
@@ -32,6 +33,7 @@ const (
 type DecisionServiceClient interface {
 	BatchDecide(ctx context.Context, in *BatchDecideRequest, opts ...grpc.CallOption) (*BatchDecideResponse, error)
 	Decide(ctx context.Context, in *DecideRequest, opts ...grpc.CallOption) (*DecideResponse, error)
+	BatchTick(ctx context.Context, in *BatchTickRequest, opts ...grpc.CallOption) (*BatchTickResponse, error)
 }
 
 type decisionServiceClient struct {
@@ -62,6 +64,16 @@ func (c *decisionServiceClient) Decide(ctx context.Context, in *DecideRequest, o
 	return out, nil
 }
 
+func (c *decisionServiceClient) BatchTick(ctx context.Context, in *BatchTickRequest, opts ...grpc.CallOption) (*BatchTickResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BatchTickResponse)
+	err := c.cc.Invoke(ctx, DecisionService_BatchTick_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DecisionServiceServer is the server API for DecisionService service.
 // All implementations must embed UnimplementedDecisionServiceServer
 // for forward compatibility.
@@ -71,6 +83,7 @@ func (c *decisionServiceClient) Decide(ctx context.Context, in *DecideRequest, o
 type DecisionServiceServer interface {
 	BatchDecide(context.Context, *BatchDecideRequest) (*BatchDecideResponse, error)
 	Decide(context.Context, *DecideRequest) (*DecideResponse, error)
+	BatchTick(context.Context, *BatchTickRequest) (*BatchTickResponse, error)
 	mustEmbedUnimplementedDecisionServiceServer()
 }
 
@@ -86,6 +99,9 @@ func (UnimplementedDecisionServiceServer) BatchDecide(context.Context, *BatchDec
 }
 func (UnimplementedDecisionServiceServer) Decide(context.Context, *DecideRequest) (*DecideResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Decide not implemented")
+}
+func (UnimplementedDecisionServiceServer) BatchTick(context.Context, *BatchTickRequest) (*BatchTickResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BatchTick not implemented")
 }
 func (UnimplementedDecisionServiceServer) mustEmbedUnimplementedDecisionServiceServer() {}
 func (UnimplementedDecisionServiceServer) testEmbeddedByValue()                         {}
@@ -144,6 +160,24 @@ func _DecisionService_Decide_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DecisionService_BatchTick_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchTickRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DecisionServiceServer).BatchTick(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DecisionService_BatchTick_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DecisionServiceServer).BatchTick(ctx, req.(*BatchTickRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DecisionService_ServiceDesc is the grpc.ServiceDesc for DecisionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -158,6 +192,10 @@ var DecisionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Decide",
 			Handler:    _DecisionService_Decide_Handler,
+		},
+		{
+			MethodName: "BatchTick",
+			Handler:    _DecisionService_BatchTick_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
