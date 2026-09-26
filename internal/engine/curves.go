@@ -2,9 +2,11 @@ package engine
 
 import "math"
 
-// Evaluate converts value into the normalized pressure defined by r.
+// Evaluate converts value into the normalized pressure defined by r. A convex
+// curve without an explicit exponent resolves through the same default path
+// as the scoring pipeline, with an empty tuning.
 func (r ResponseCurve) Evaluate(value, minimum, maximum float64) float64 {
-	return r.evaluate(value, minimum, maximum, 2)
+	return r.evaluate(value, minimum, maximum, responseCurveExponent(Tuning{}))
 }
 
 func (r ResponseCurve) evaluate(value, minimum, maximum, defaultExponent float64) float64 {
@@ -55,4 +57,14 @@ func pressure(consideration Consideration, defaultExponent float64) float64 {
 		consideration.Value, consideration.Min, consideration.Max,
 		defaultExponent,
 	)
+}
+
+// responseCurveExponent resolves the profile default for convex curves; a
+// zero tuning value means "not configured" and falls back to the engine
+// default.
+func responseCurveExponent(tuning Tuning) float64 {
+	if tuning.ResponseCurveExponent != 0 {
+		return tuning.ResponseCurveExponent
+	}
+	return RESPONSE_CURVE_EXPONENT
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,4 +48,29 @@ func TestNewLoggerRejectsInvalidConfig(t *testing.T) {
 	assert.Error(t, err)
 	_, err = NewLogger(LoggerParams{Cfg: &config.Config{LogFormat: "json", LogLevel: "loud", Stderr: &bytes.Buffer{}}})
 	assert.Error(t, err)
+}
+
+func TestNewLoggerSamplingDropsRepeatedEntriesAfterInitial(t *testing.T) {
+	var stderr bytes.Buffer
+	logger, err := NewLogger(LoggerParams{Cfg: &config.Config{
+		LogFormat: "json", LogLevel: "info", Stderr: &stderr,
+		LogSampleInterval: time.Hour, LogSampleInitial: 3, LogSampleThereafter: 1000,
+	}})
+	require.NoError(t, err)
+	for range 10 {
+		logger.Info("repeated")
+	}
+	lines := strings.Split(strings.TrimSpace(stderr.String()), "\n")
+	assert.Len(t, lines, 3, "sampler must pass only the initial entries of a repeated message")
+}
+
+func TestNewLoggerZeroSamplingConfigFallsBackToDefaults(t *testing.T) {
+	var stderr bytes.Buffer
+	logger, err := NewLogger(LoggerParams{Cfg: &config.Config{LogFormat: "json", LogLevel: "info", Stderr: &stderr}})
+	require.NoError(t, err)
+	for range DefaultSampleInitial + 1 {
+		logger.Info("repeated")
+	}
+	lines := strings.Split(strings.TrimSpace(stderr.String()), "\n")
+	assert.Len(t, lines, DefaultSampleInitial, "zero-value sampling fields must behave like the production defaults")
 }

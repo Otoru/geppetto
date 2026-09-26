@@ -18,6 +18,22 @@ type ListenerParams struct {
 	Log *zap.Logger
 }
 
+// Transport vocabulary shared by the CLI default, the flag help text, the
+// listener switch, and the handshake's transport label: one place only.
+const (
+	TransportTCP = "tcp"
+	TransportUDS = "uds"
+)
+
+// loopbackHost binds TCP to loopback only: the subprocess serves the local
+// game client and must not accept remote connections.
+const loopbackHost = "127.0.0.1"
+
+// WindowsPipePrefix is the mandatory path prefix for Windows named pipes. It
+// lives here (not behind the Windows build tag) because the command's default
+// socket path also needs it when running on Windows.
+const WindowsPipePrefix = `\\.\pipe\`
+
 // NewListener resolves the listener from the process config.
 func NewListener(p ListenerParams) (*Listener, error) {
 	listener, err := Listen(p.Cfg.Transport, p.Cfg.Socket, p.Cfg.Port)
@@ -37,15 +53,15 @@ type Listener struct {
 
 func Listen(kind, socket string, port int) (*Listener, error) {
 	switch kind {
-	case "tcp":
-		listener, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
+	case TransportTCP:
+		listener, err := net.Listen(TransportTCP, net.JoinHostPort(loopbackHost, strconv.Itoa(port)))
 		if err != nil {
 			return nil, err
 		}
-		return &Listener{Listener: listener, Transport: "tcp", Cleanup: listener.Close}, nil
-	case "uds":
+		return &Listener{Listener: listener, Transport: TransportTCP, Cleanup: listener.Close}, nil
+	case TransportUDS:
 		return listenLocal(socket)
 	default:
-		return nil, fmt.Errorf("unsupported transport %q (want uds or tcp)", kind)
+		return nil, fmt.Errorf("unsupported transport %q (want %s or %s)", kind, TransportUDS, TransportTCP)
 	}
 }

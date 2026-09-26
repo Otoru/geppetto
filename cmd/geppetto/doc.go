@@ -26,6 +26,9 @@
 //     alternative.
 //   - --log-level=info selects the default log threshold; debug, warn, and
 //     error are also accepted by zap.
+//   - --log-sample-interval=1s, --log-sample-initial=100, and
+//     --log-sample-thereafter=100 tune the production sampler: the first
+//     initial identical entries per interval pass, then one in thereafter.
 //
 // The default local address is intentionally process-specific, so the client
 // learns it from the handshake rather than guessing. Development hot reload

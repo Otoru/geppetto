@@ -73,68 +73,122 @@ func ResolveContention(agents []Agent, preferences [][]Candidate) []*ActionInsta
 	for i := range assigned {
 		assigned[i] = -1
 	}
-
+	state := contentionState{
+		agents:      agents,
+		preferences: preferences,
+		cursors:     cursors,
+		assigned:    assigned,
+	}
 	for {
-		displaced := false
-		claims := map[string][]int{}
-		for i := range agents {
-			if cursors[i] >= len(preferences[i]) {
-				continue
-			}
-			providerID := preferences[i][cursors[i]].Provider.ID
-			claims[providerID] = append(claims[providerID], i)
-		}
-		// Each agent appears in exactly one claim list per round, so map
-		// iteration order cannot affect the outcome.
-		for _, claimants := range claims {
-			slices.SortFunc(claimants, func(a, b int) int {
-				distanceA := agents[a].Position.Distance(preferences[a][cursors[a]].Provider.Position)
-				distanceB := agents[b].Position.Distance(preferences[b][cursors[b]].Provider.Position)
-				if d := cmp.Compare(distanceA, distanceB); d != 0 {
-					return d
-				}
-				if d := cmp.Compare(agents[a].ID, agents[b].ID); d != 0 {
-					return d
-				}
-				return cmp.Compare(a, b)
-			})
-			provider := preferences[claimants[0]][cursors[claimants[0]]].Provider
-			providerSlots := provider.Capacity - len(provider.Occupants)
-			// Action slots are per provider instance: action "saw" on bench X
-			// does not share its cap with "saw" on bench Y. -1 = unlimited.
-			actionSlots := map[string]int{}
-			for _, agentIndex := range claimants {
-				candidate := preferences[agentIndex][cursors[agentIndex]]
-				slots, tracked := actionSlots[candidate.Action.ActionID]
-				if !tracked {
-					slots = actionFreeSlots(candidate.Action)
-					actionSlots[candidate.Action.ActionID] = slots
-				}
-				if providerSlots > 0 && slots != 0 {
-					assigned[agentIndex] = cursors[agentIndex]
-					providerSlots--
-					if slots > 0 {
-						actionSlots[candidate.Action.ActionID] = slots - 1
-					}
-				} else {
-					assigned[agentIndex] = -1
-					cursors[agentIndex]++
-					displaced = true
-				}
-			}
-		}
-		if !displaced {
+		if !state.resolveRound() {
 			break
 		}
 	}
+	return state.instances()
+}
 
-	result := make([]*ActionInstance, len(agents))
-	for i := range agents {
-		if assigned[i] < 0 {
+// contentionState tracks each agent's current preference cursor and the
+// candidate index assigned so far (-1 when the agent has no slot).
+type contentionState struct {
+	agents      []Agent
+	preferences [][]Candidate
+	cursors     []int
+	assigned    []int
+}
+
+// resolveRound awards the current candidate of every agent that still has
+// one. It reports whether any agent was displaced and must try its next
+// preference. Each agent appears in exactly one claim list per round, so map
+// iteration order cannot affect the outcome.
+func (state *contentionState) resolveRound() bool {
+	displaced := false
+	for _, claimants := range state.claims() {
+		if state.award(claimants) {
+			displaced = true
+		}
+	}
+	return displaced
+}
+
+func (state *contentionState) claims() map[string][]int {
+	claims := map[string][]int{}
+	for agentIndex := range state.agents {
+		if state.cursors[agentIndex] >= len(state.preferences[agentIndex]) {
 			continue
 		}
-		chosen := preferences[i][assigned[i]]
-		result[i] = &ActionInstance{
+		providerID := state.preferences[agentIndex][state.cursors[agentIndex]].Provider.ID
+		claims[providerID] = append(claims[providerID], agentIndex)
+	}
+	return claims
+}
+
+func (state *contentionState) award(claimants []int) bool {
+	state.sortClaimants(claimants)
+	provider := state.preferences[claimants[0]][state.cursors[claimants[0]]].Provider
+	providerSlots := provider.Capacity - len(provider.Occupants)
+	// Action slots are per provider instance: action "saw" on bench X does
+	// not share its cap with "saw" on bench Y. -1 = unlimited.
+	actionSlots := map[string]int{}
+	displaced := false
+	for _, agentIndex := range claimants {
+		if !state.giveSlot(agentIndex, actionSlots, &providerSlots) {
+			displaced = true
+		}
+	}
+	return displaced
+}
+
+func (state *contentionState) sortClaimants(claimants []int) {
+	slices.SortFunc(claimants, func(left, right int) int {
+		return state.compareClaimants(left, right)
+	})
+}
+
+func (state *contentionState) compareClaimants(left, right int) int {
+	distanceLeft := state.agents[left].Position.Distance(state.preferences[left][state.cursors[left]].Provider.Position)
+	distanceRight := state.agents[right].Position.Distance(state.preferences[right][state.cursors[right]].Provider.Position)
+	if order := cmp.Compare(distanceLeft, distanceRight); order != 0 {
+		return order
+	}
+	if order := cmp.Compare(state.agents[left].ID, state.agents[right].ID); order != 0 {
+		return order
+	}
+	return cmp.Compare(left, right)
+}
+
+func (state *contentionState) giveSlot(agentIndex int, actionSlots map[string]int, providerSlots *int) bool {
+	candidate := state.preferences[agentIndex][state.cursors[agentIndex]]
+	slots := trackedActionSlots(actionSlots, candidate.Action)
+	if *providerSlots > 0 && slots != 0 {
+		state.assigned[agentIndex] = state.cursors[agentIndex]
+		*providerSlots--
+		if slots > 0 {
+			actionSlots[candidate.Action.ActionID] = slots - 1
+		}
+		return true
+	}
+	state.assigned[agentIndex] = -1
+	state.cursors[agentIndex]++
+	return false
+}
+
+func trackedActionSlots(actionSlots map[string]int, action AdvertisedAction) int {
+	slots, tracked := actionSlots[action.ActionID]
+	if !tracked {
+		slots = actionFreeSlots(action)
+		actionSlots[action.ActionID] = slots
+	}
+	return slots
+}
+
+func (state *contentionState) instances() []*ActionInstance {
+	result := make([]*ActionInstance, len(state.agents))
+	for agentIndex := range state.agents {
+		if state.assigned[agentIndex] < 0 {
+			continue
+		}
+		chosen := state.preferences[agentIndex][state.assigned[agentIndex]]
+		result[agentIndex] = &ActionInstance{
 			Action:              chosen.Action,
 			ProviderID:          chosen.Provider.ID,
 			ContinuationUtility: chosen.Utility,

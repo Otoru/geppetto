@@ -19,13 +19,27 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
+// developmentVersion is the in-tree fallback stamped into Version; release
+// builds replace it via -ldflags "-X main.Version=...".
+const developmentVersion = "dev"
+
 // Version is replaced by -ldflags during release builds.
-var Version = "dev"
+var Version = developmentVersion
+
+const (
+	// processName names the binary: it titles the flag set and roots the
+	// default per-PID socket path.
+	processName = "geppetto"
+	// defaultConfigDir is the profile directory used when --config-dir is
+	// absent.
+	defaultConfigDir = "configs"
+)
 
 type handshake struct {
 	Transport string `json:"transport"`
@@ -126,39 +140,45 @@ type lifecycleParams struct {
 func parseFlags(args []string, stderr io.Writer) (*config.Config, error) {
 	// pflag gives POSIX-style parsing; the flag set below mirrors the previous
 	// stdlib flag set exactly — same names, same defaults, ContinueOnError.
-	flags := pflag.NewFlagSet("geppetto", pflag.ContinueOnError)
+	flags := pflag.NewFlagSet(processName, pflag.ContinueOnError)
 	flags.SetOutput(stderr)
 
-	transportKind := flags.String("transport", "uds", "uds (Unix socket/named pipe) or tcp")
+	transportKind := flags.String("transport", transport.TransportUDS, fmt.Sprintf("%s (Unix socket/named pipe) or %s", transport.TransportUDS, transport.TransportTCP))
 	port := flags.Int("port", 0, "TCP port; 0 chooses an ephemeral port")
 	socket := flags.String("socket", "", "Unix socket or Windows named pipe path")
-	configDir := flags.String("config-dir", "configs", "profile JSON directory")
-	logFormat := flags.String("log-format", "json", "log format: json (production) or console (development)")
-	logLevel := flags.String("log-level", "info", "log level: debug, info, warn, error")
+	configDir := flags.String("config-dir", defaultConfigDir, "profile JSON directory")
+	logFormat := flags.String("log-format", logging.FormatJSON, fmt.Sprintf("log format: %s (production) or %s (development)", logging.FormatJSON, logging.FormatConsole))
+	logLevel := flags.String("log-level", zapcore.InfoLevel.String(), "log level: debug, info, warn, error")
+	logSampleInterval := flags.Duration("log-sample-interval", logging.DefaultSampleInterval, "log sampling window for identical entries")
+	logSampleInitial := flags.Int("log-sample-initial", logging.DefaultSampleInitial, "identical log entries per window that always pass before sampling starts")
+	logSampleThereafter := flags.Int("log-sample-thereafter", logging.DefaultSampleThereafter, "after the initial entries, one in N identical entries passes (1 disables sampling)")
 
 	if err := flags.Parse(args); err != nil {
 		return nil, err
 	}
 
 	if *socket == "" {
-		if *transportKind == "uds" {
+		if *transportKind == transport.TransportUDS {
 			*socket = defaultSocket(os.Getpid())
 		}
 	}
 
 	return &config.Config{
-		Transport: *transportKind,
-		Port:      *port,
-		Socket:    *socket,
-		ConfigDir: *configDir,
-		LogFormat: *logFormat,
-		LogLevel:  *logLevel,
+		Transport:           *transportKind,
+		Port:                *port,
+		Socket:              *socket,
+		ConfigDir:           *configDir,
+		LogFormat:           *logFormat,
+		LogLevel:            *logLevel,
+		LogSampleInterval:   *logSampleInterval,
+		LogSampleInitial:    *logSampleInitial,
+		LogSampleThereafter: *logSampleThereafter,
 	}, nil
 }
 
 func defaultSocket(pid int) string {
 	if isWindows() {
-		return `\\.\pipe\geppetto-` + strconv.Itoa(pid)
+		return transport.WindowsPipePrefix + processName + "-" + strconv.Itoa(pid)
 	}
-	return filepath.Join(os.TempDir(), fmt.Sprintf("geppetto-%d.sock", pid))
+	return filepath.Join(os.TempDir(), fmt.Sprintf("%s-%d.sock", processName, pid))
 }

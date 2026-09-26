@@ -10,6 +10,10 @@ type Profile struct {
 	Name           string          `json:"name"`
 	Considerations []Consideration `json:"considerations"`
 	Tuning         Tuning          `json:"tuning"`
+	// AggregatedEventEffects is the LOD reconstruction table: how each
+	// aggregated event kind rebuilds considerations on TransitionToFull. A
+	// profile without it reconstructs nothing.
+	AggregatedEventEffects []AggregatedEventEffect `json:"aggregated_event_effects,omitempty"`
 }
 
 // LoadProfile reads a JSON profile from path.

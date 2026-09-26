@@ -29,10 +29,14 @@ func ProvideProfiles(p ProfileParams) (*ProfileCache, error) {
 	return cache, nil
 }
 
+// profileFilePattern selects the profile documents inside the config
+// directory; every match must decode as a profile or startup fails.
+const profileFilePattern = "*.json"
+
 // LoadProfiles reads profiles once at process startup. Requests refer to them
 // by ID and never cause file I/O on the decision path.
 func LoadProfiles(directory string) (*ProfileCache, error) {
-	paths, err := filepath.Glob(filepath.Join(directory, "*.json"))
+	paths, err := filepath.Glob(filepath.Join(directory, profileFilePattern))
 	if err != nil {
 		return nil, err
 	}

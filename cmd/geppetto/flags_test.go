@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -68,4 +69,26 @@ func TestParseFlagsInvalidPortFails(t *testing.T) {
 	_, err := parseFlags([]string{"--port=not-a-number"}, io.Discard)
 
 	require.Error(t, err)
+}
+
+func TestParseFlagsLogSamplingDefaults(t *testing.T) {
+	cfg, err := parseFlags(nil, io.Discard)
+
+	require.NoError(t, err)
+	assert.Equal(t, time.Second, cfg.LogSampleInterval)
+	assert.Equal(t, 100, cfg.LogSampleInitial)
+	assert.Equal(t, 100, cfg.LogSampleThereafter)
+}
+
+func TestParseFlagsAssignsLogSamplingFlags(t *testing.T) {
+	cfg, err := parseFlags([]string{
+		"--log-sample-interval=2s",
+		"--log-sample-initial=5",
+		"--log-sample-thereafter=7",
+	}, io.Discard)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2*time.Second, cfg.LogSampleInterval)
+	assert.Equal(t, 5, cfg.LogSampleInitial)
+	assert.Equal(t, 7, cfg.LogSampleThereafter)
 }

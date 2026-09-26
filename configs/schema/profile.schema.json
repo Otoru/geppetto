@@ -23,9 +23,32 @@
         },
         "tuning": {
             "$ref": "#/$defs/tuning"
+        },
+        "aggregated_event_effects": {
+            "type": "array",
+            "description": "Tabela de reconstrução de LOD: declara os tipos de evento agregado e seus deltas por consideração, aplicados quando um agente volta do nível SIMPLIFIED para o FULL (TransitionToFull). Mesma forma dos deltas de uma AdvertisedAction. Perfil sem a tabela não reconstrói nada — a transição apenas descarta o log de eventos e restaura o nível FULL.",
+            "items": { "$ref": "#/$defs/aggregatedEventEffect" }
         }
     },
     "$defs": {
+        "aggregatedEventEffect": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "deltas"],
+            "description": "Efeito de um tipo de evento agregado na reconstrução de LOD: os deltas são somados às considerações correspondentes, com clamp aos limites de cada uma. Deltas para considerações que o agente não possui são ignorados.",
+            "properties": {
+                "kind": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Tipo do evento agregado, casado com AggregatedEvent.Kind pelo motor. Conjunto aberto, definido pelo jogo (ex.: meal, rest, combat)."
+                },
+                "deltas": {
+                    "type": "object",
+                    "additionalProperties": { "type": "number" },
+                    "description": "Deltas por ID de consideração (ex.: {\"HUNGER\": 120}). Positivo recupera, negativo degrada."
+                }
+            }
+        },
         "consideration": {
             "type": "object",
             "additionalProperties": false,

@@ -219,13 +219,82 @@ func TestPreemptionAboveMargin(t *testing.T) {
 
 // An agent in SIMPLIFIED mode whose aggregated schedule included a "meal" at
 // 12h and returns to FULL mode at 13h reappears with HUNGER >= +30 — a
-// plausible state, not starving.
+// plausible state, not starving. The reconstruction table is declared as data,
+// the same way a profile would declare it.
 func TestLODReconstructionIsPlausible(t *testing.T) {
+	effects := []AggregatedEventEffect{{Kind: "meal", Deltas: map[string]float64{"HUNGER": 120}}}
 	a := testAgent(c("HUNGER", -80))
 	a.SimulationLevel = Simplified
 	ApplyAggregatedEvent(&a, AggregatedEvent{Kind: "meal", AtHour: 12})
-	TransitionToFull(&a, 13)
+	TransitionToFull(&a, 13, effects)
 	assert.GreaterOrEqual(t, a.Considerations["HUNGER"].Value, 30.0)
+}
+
+// LOD reconstruction is data-driven: the effects table maps aggregated event
+// kinds to consideration deltas, and the engine applies it without knowing
+// event or consideration names. Only events that happened by the target hour
+// and whose kind is declared apply.
+func TestTransitionToFullAppliesDeclaredEventEffects(t *testing.T) {
+	effects := []AggregatedEventEffect{{Kind: "meal", Deltas: map[string]float64{"HUNGER": 120}}}
+	a := testAgent(c("HUNGER", -80))
+	a.SimulationLevel = Simplified
+	ApplyAggregatedEvent(&a, AggregatedEvent{Kind: "meal", AtHour: 12})
+	ApplyAggregatedEvent(&a, AggregatedEvent{Kind: "meal", AtHour: 14})
+	ApplyAggregatedEvent(&a, AggregatedEvent{Kind: "nap", AtHour: 12})
+
+	TransitionToFull(&a, 13, effects)
+
+	assert.InDelta(t, 40, a.Considerations["HUNGER"].Value, 0.0001)
+	assert.Empty(t, a.AggregatedEvents)
+	assert.Equal(t, Full, a.SimulationLevel)
+}
+
+// A profile without an aggregated-event table reconstructs nothing: the
+// transition only discards the event log and restores full detail.
+func TestTransitionToFullWithoutDeclaredEffectsReconstructsNothing(t *testing.T) {
+	a := testAgent(c("HUNGER", -80))
+	a.SimulationLevel = Simplified
+	ApplyAggregatedEvent(&a, AggregatedEvent{Kind: "meal", AtHour: 12})
+
+	TransitionToFull(&a, 13, nil)
+
+	assert.InDelta(t, -80, a.Considerations["HUNGER"].Value, 0.0001)
+	assert.Empty(t, a.AggregatedEvents)
+	assert.Equal(t, Full, a.SimulationLevel)
+}
+
+// A player-queued action is protected from preemption unless a consideration
+// reaches imminent collapse. Collapse is read from the consideration's own
+// CriticalThreshold, not from an engine-wide constant: with a threshold of
+// -20, a value of -25 is already a collapse and the queued action yields.
+func TestPlayerQueuedActionYieldsAtConsiderationCriticalThreshold(t *testing.T) {
+	critical := c("HUNGER", -25)
+	critical.CriticalThreshold = -20
+	a := testAgent(critical)
+	a.CurrentAction = &ActionInstance{Action: action("leisure", map[string]float64{"HUNGER": 1}), ContinuationUtility: 1, PlayerQueued: true}
+	ps := []AffordanceProvider{provider("food", Position{}, action("eat", map[string]float64{"HUNGER": 80}))}
+	assert.True(t, CheckPreemption(&a, ps, DefaultTuning(), rand.New(rand.NewPCG(1, 1))))
+	assert.Equal(t, "eat", a.CurrentAction.Action.ActionID)
+}
+
+// A consideration without a configured CriticalThreshold (zero) falls back to
+// the engine's named imminent-collapse floor: a player-queued action survives
+// a value of -50 but yields at -95.
+func TestPlayerQueuedActionFallsBackToNamedCollapseThreshold(t *testing.T) {
+	queued := func(value float64) Agent {
+		consideration := c("HUNGER", value)
+		consideration.CriticalThreshold = 0
+		a := testAgent(consideration)
+		a.CurrentAction = &ActionInstance{Action: action("leisure", map[string]float64{"HUNGER": 1}), ContinuationUtility: 1, PlayerQueued: true}
+		return a
+	}
+	ps := []AffordanceProvider{provider("food", Position{}, action("eat", map[string]float64{"HUNGER": 80}))}
+
+	protected := queued(-50)
+	assert.False(t, CheckPreemption(&protected, ps, DefaultTuning(), rand.New(rand.NewPCG(1, 1))))
+
+	collapsed := queued(-95)
+	assert.True(t, CheckPreemption(&collapsed, ps, DefaultTuning(), rand.New(rand.NewPCG(1, 1))))
 }
 
 // During an active NarrativeCommitment (e.g., romance, escort), the agent does
@@ -259,6 +328,17 @@ func TestProfilePreservesConsiderationBounds(t *testing.T) {
 	assert.InDelta(t, -100, profile.Considerations[0].Min, 0.0001)
 	assert.InDelta(t, 0, profile.Considerations[0].Value, 0.0001)
 	assert.InDelta(t, 100, profile.Considerations[0].Max, 0.0001)
+}
+
+// The social-life profile declares its LOD reconstruction table as data: a
+// "meal" aggregated event restores HUNGER when an agent returns to full
+// detail.
+func TestProfileLoadsAggregatedEventEffects(t *testing.T) {
+	profile, err := LoadProfile("../../configs/social-life.json")
+	require.NoError(t, err)
+	require.NotEmpty(t, profile.AggregatedEventEffects)
+	assert.Equal(t, "meal", profile.AggregatedEventEffects[0].Kind)
+	assert.InDelta(t, 120, profile.AggregatedEventEffects[0].Deltas["HUNGER"], 0.0001)
 }
 
 // An action with deltas {+FUN 40, -ENERGY 30} is chosen by a bored, rested

@@ -3,6 +3,14 @@ GO_BIN := $(if $(shell $(GO) env GOBIN),$(shell $(GO) env GOBIN),$(shell $(GO) e
 BUF ?= $(GO_BIN)/buf
 AIR ?= $(GO_BIN)/air
 
+# Fallback version stamp for builds outside a git checkout; mirrors the
+# in-tree default of cmd/geppetto (var Version = developmentVersion).
+DEV_VERSION := dev
+VERSION := $(shell git describe --always --dirty 2>/dev/null || echo $(DEV_VERSION))
+
+# Cross-compile matrix as GOOS/GOARCH pairs; the windows entry gains .exe.
+PLATFORMS := linux/amd64 darwin/arm64 windows/amd64
+
 .PHONY: generate lint test bench build build-all dev
 
 # Hot reload de desenvolvimento via air (github.com/air-verse/air).
@@ -26,10 +34,8 @@ bench:
 
 build:
 	mkdir -p bin
-	$(GO) build -trimpath -ldflags "-X main.Version=$$(git describe --always --dirty 2>/dev/null || echo dev)" -o bin/geppetto ./cmd/geppetto
+	$(GO) build -trimpath -ldflags "-X main.Version=$(VERSION)" -o bin/geppetto ./cmd/geppetto
 
 build-all:
 	mkdir -p bin
-	GOOS=linux GOARCH=amd64 $(GO) build -trimpath -o bin/geppetto-linux-amd64 ./cmd/geppetto
-	GOOS=darwin GOARCH=arm64 $(GO) build -trimpath -o bin/geppetto-darwin-arm64 ./cmd/geppetto
-	GOOS=windows GOARCH=amd64 $(GO) build -trimpath -o bin/geppetto-windows-amd64.exe ./cmd/geppetto
+	$(foreach platform,$(PLATFORMS),GOOS=$(word 1,$(subst /, ,$(platform))) GOARCH=$(word 2,$(subst /, ,$(platform))) $(GO) build -trimpath -o bin/geppetto-$(subst /,-,$(platform))$(if $(filter windows/%,$(platform)),.exe) ./cmd/geppetto;)

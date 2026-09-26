@@ -15,6 +15,15 @@ const (
 	// agent retains for contention resolution. At 50k agents per batch,
 	// retaining full candidate lists per agent would blow the memory budget.
 	RECONCILIATION_TOP_K = 5
+	// RESPONSE_CURVE_EXPONENT is the default exponent for convex response
+	// curves without a per-consideration or per-profile override.
+	RESPONSE_CURVE_EXPONENT = 2.0
+	// PREEMPTION_MARGIN is the default utility factor a candidate must
+	// strictly exceed to interrupt the current action.
+	PREEMPTION_MARGIN = 1.5
+	// IMMINENT_COLLAPSE_THRESHOLD is the fallback collapse floor for a
+	// consideration without a configured CriticalThreshold.
+	IMMINENT_COLLAPSE_THRESHOLD = -90.0
 )
 
 // Position is a three-dimensional point in world units.
@@ -231,13 +240,13 @@ type Tuning struct {
 // DefaultTuning returns the specification's default tuning values.
 func DefaultTuning() Tuning {
 	return Tuning{
-		ResponseCurveExponent:      2,
+		ResponseCurveExponent:      RESPONSE_CURVE_EXPONENT,
 		WPriority:                  W_PRIORITY,
 		DistanceReference:          DISTANCE_REFERENCE,
 		SelectionTopK:              SELECTION_TOP_K,
 		SelectionTemperature:       SELECTION_TEMPERATURE,
 		ReconciliationTopK:         RECONCILIATION_TOP_K,
-		PreemptionMargin:           1.5,
+		PreemptionMargin:           PREEMPTION_MARGIN,
 		ConventionBreakProbability: .15,
 		PerceptionNoise:            5,
 		FullTickHours:              1.0 / 60,
@@ -249,4 +258,15 @@ func DefaultTuning() Tuning {
 type AggregatedEvent struct {
 	Kind   string
 	AtHour float64
+}
+
+// AggregatedEventEffect declares how one kind of aggregated event rebuilds
+// consideration state when an agent returns to full simulation detail. The
+// profile owns the table; the engine applies it without knowing event or
+// consideration names.
+type AggregatedEventEffect struct {
+	// Kind matches AggregatedEvent.Kind.
+	Kind string `json:"kind"`
+	// Deltas are added to the matching considerations, clamped to their bounds.
+	Deltas map[string]float64 `json:"deltas"`
 }

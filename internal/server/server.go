@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	"reflect"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,7 +19,37 @@ import (
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
+
+// noSelection is the wire sentinel for "no action selected": the response
+// uses a packed sint32 array with no optional presence, so -1 marks agents
+// that exhausted every candidate.
+const noSelection = -1
+
+// Offset validation messages quote proto field names. They are derived from
+// the generated struct tags so the messages cannot drift from the proto
+// definition.
+var (
+	actionTagOffsetsFieldName   = protoFieldName(&gepv1.BatchDecideRequest{}, "ActionTagOffsets")
+	actionDeltaOffsetsFieldName = protoFieldName(&gepv1.BatchDecideRequest{}, "ActionDeltaOffsets")
+)
+
+// protoFieldName resolves a generated field's wire name from its protobuf
+// struct tag. It panics at package init if the field disappears, which turns
+// a proto rename into a loud startup failure instead of a stale message.
+func protoFieldName(message proto.Message, goFieldName string) string {
+	field, ok := reflect.TypeOf(message).Elem().FieldByName(goFieldName)
+	if !ok {
+		panic(fmt.Sprintf("proto message %T has no field %s", message, goFieldName))
+	}
+	for _, part := range strings.Split(field.Tag.Get("protobuf"), ",") {
+		if name, ok := strings.CutPrefix(part, "name="); ok {
+			return name
+		}
+	}
+	panic(fmt.Sprintf("proto field %s of %T has no wire name", goFieldName, message))
+}
 
 // ProfileCache holds profiles loaded once at process startup.
 type ProfileCache struct {
@@ -119,7 +151,7 @@ func newBatchResponse(agentCount int) *gepv1.BatchDecideResponse {
 		Utilities:             make([]float64, agentCount),
 	}
 	for agentIndex := range response.SelectedActionIndices {
-		response.SelectedActionIndices[agentIndex] = -1
+		response.SelectedActionIndices[agentIndex] = noSelection
 	}
 	return response
 }
@@ -154,7 +186,7 @@ func (s *DecisionServer) decideBatch(ctx context.Context, request *gepv1.BatchDe
 
 	// Serial reconciliation: contested provider slots go to the nearest
 	// agents; losers walk their own fallback lists. Agents that exhaust
-	// their candidates keep the -1 prefilled by newBatchResponse.
+	// their candidates keep the noSelection prefilled by newBatchResponse.
 	agents := make([]engine.Agent, agentCount)
 	for agentIndex := range agents {
 		agents[agentIndex] = engine.Agent{
@@ -235,7 +267,7 @@ func selectedActionIndex(selected *engine.ActionInstance, actions []engine.Adver
 			return int32(actionIndex)
 		}
 	}
-	return -1
+	return noSelection
 }
 
 func validateAgents(request *gepv1.BatchDecideRequest, considerationCount int) error {
@@ -290,10 +322,10 @@ func decodeActions(request *gepv1.BatchDecideRequest, providers []engine.Afforda
 	if len(request.ActionProviderIndices) != actionCount || len(request.ActionEstimatedDurations) != actionCount || len(request.ActionDomains) != actionCount || len(request.ActionIntrinsicPriorities) != actionCount || len(request.ActionAdvertisementRadii) != actionCount {
 		return nil, fmt.Errorf("action arrays must match action_ids")
 	}
-	if err := validateOffsets(request.ActionTagOffsets, len(request.ActionTags), actionCount, "action_tag_offsets"); err != nil {
+	if err := validateOffsets(request.ActionTagOffsets, len(request.ActionTags), actionCount, actionTagOffsetsFieldName); err != nil {
 		return nil, err
 	}
-	if err := validateOffsets(request.ActionDeltaOffsets, len(request.DeltaConsiderationIds), actionCount, "action_delta_offsets"); err != nil {
+	if err := validateOffsets(request.ActionDeltaOffsets, len(request.DeltaConsiderationIds), actionCount, actionDeltaOffsetsFieldName); err != nil {
 		return nil, err
 	}
 	if len(request.DeltaConsiderationIds) != len(request.DeltaValues) {

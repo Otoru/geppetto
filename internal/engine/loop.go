@@ -21,7 +21,7 @@ func CheckPreemption(agent *Agent, providers []AffordanceProvider, tuning Tuning
 
 	preemptionMargin := tuning.PreemptionMargin
 	if preemptionMargin == 0 {
-		preemptionMargin = 1.5
+		preemptionMargin = PREEMPTION_MARGIN
 	}
 	if bestAction.ContinuationUtility > preemptionMargin*agent.CurrentAction.ContinuationUtility {
 		agent.CurrentAction = bestAction
@@ -35,11 +35,21 @@ func urgencyState(considerations map[string]Consideration) (hasCriticalConsidera
 		if consideration.Value < consideration.CriticalThreshold {
 			hasCriticalConsideration = true
 		}
-		if consideration.Value <= -90 {
+		if consideration.Value <= collapseThreshold(consideration) {
 			hasImminentCollapse = true
 		}
 	}
 	return hasCriticalConsideration, hasImminentCollapse
+}
+
+// collapseThreshold reads the imminent-collapse floor from the consideration
+// itself; a zero CriticalThreshold means "not configured" and falls back to
+// the engine default.
+func collapseThreshold(consideration Consideration) float64 {
+	if consideration.CriticalThreshold != 0 {
+		return consideration.CriticalThreshold
+	}
+	return IMMINENT_COLLAPSE_THRESHOLD
 }
 
 // Tick advances one full-detail simulation tick for agent.
@@ -71,23 +81,35 @@ func ApplyAggregatedEvent(agent *Agent, event AggregatedEvent) {
 	agent.AggregatedEvents = append(agent.AggregatedEvents, event)
 }
 
-// TransitionToFull reconstructs a plausible detailed state from accumulated events.
-func TransitionToFull(agent *Agent, hour float64) {
+// TransitionToFull reconstructs a plausible detailed state from accumulated
+// events. The effects table, declared by the profile, maps each aggregated
+// event kind to the consideration deltas it applies — the engine knows
+// neither event nor consideration names. Events after hour and undeclared
+// kinds are ignored; a nil table reconstructs nothing.
+func TransitionToFull(agent *Agent, hour float64, effects []AggregatedEventEffect) {
+	deltasByKind := make(map[string]map[string]float64, len(effects))
+	for _, effect := range effects {
+		deltasByKind[effect.Kind] = effect.Deltas
+	}
 	for _, event := range agent.AggregatedEvents {
-		if event.Kind == "meal" && event.AtHour <= hour {
-			applyMealReconstruction(agent)
+		if event.AtHour > hour {
+			continue
+		}
+		if deltas, declared := deltasByKind[event.Kind]; declared {
+			applyAggregatedDeltas(agent, deltas)
 		}
 	}
 	agent.AggregatedEvents = nil
 	agent.SimulationLevel = Full
 }
 
-func applyMealReconstruction(agent *Agent) {
-	hunger, exists := agent.Considerations["HUNGER"]
-	if !exists {
-		return
+func applyAggregatedDeltas(agent *Agent, deltas map[string]float64) {
+	for considerationID, delta := range deltas {
+		consideration, exists := agent.Considerations[considerationID]
+		if !exists {
+			continue
+		}
+		consideration.Value = clamp(consideration.Value+delta, consideration.Min, consideration.Max)
+		agent.Considerations[considerationID] = consideration
 	}
-
-	hunger.Value = clamp(hunger.Value+120, hunger.Min, hunger.Max)
-	agent.Considerations["HUNGER"] = hunger
 }

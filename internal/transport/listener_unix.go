@@ -8,6 +8,10 @@ import (
 	"os"
 )
 
+// unixNetwork is the net.Listen network name for Unix domain sockets; the
+// public transport label for the same listener is TransportUDS.
+const unixNetwork = "unix"
+
 func listenLocal(socket string) (*Listener, error) {
 	if socket == "" {
 		return nil, fmt.Errorf("uds socket path is required")
@@ -22,11 +26,11 @@ func listenLocal(socket string) (*Listener, error) {
 	} else if !os.IsNotExist(err) {
 		return nil, err
 	}
-	listener, err := net.Listen("unix", socket)
+	listener, err := net.Listen(unixNetwork, socket)
 	if err != nil {
 		return nil, err
 	}
-	return &Listener{Listener: listener, Transport: "uds", Cleanup: func() error {
+	return &Listener{Listener: listener, Transport: TransportUDS, Cleanup: func() error {
 		closeErr := listener.Close()
 		removeErr := os.Remove(socket)
 		if removeErr != nil && !os.IsNotExist(removeErr) {

@@ -47,6 +47,12 @@
             }
         }
     ],
+    "aggregated_event_effects": [
+        {
+            "kind": "meal",
+            "deltas": { "HUNGER": 120 }
+        }
+    ],
     "tuning": {
         "response_curve_exponent": 2,
         "W_PRIORITY": 2,

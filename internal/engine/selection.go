@@ -6,6 +6,15 @@ import (
 	"sort"
 )
 
+const (
+	// neutralMultiplier is the multiplicative identity: a multiplier chain
+	// with no matching modifiers leaves the score unchanged.
+	neutralMultiplier = 1.0
+	// neutralSum is the additive identity: an accumulator with no
+	// contributions totals zero.
+	neutralSum = 0.0
+)
+
 func satisfies(agent Agent, provider AffordanceProvider, action AdvertisedAction) bool {
 	return preconditionsHold(agent, provider.State, action.Preconditions) &&
 		costPayable(agent, action.Cost) &&
@@ -55,7 +64,7 @@ func commitmentContradicts(commitment NarrativeCommitment, tags []string) bool {
 }
 
 func tagMultiplier(modifiers map[string]float64, tags []string) float64 {
-	multiplier := 1.0
+	multiplier := neutralMultiplier
 	for _, tag := range tags {
 		if modifier, exists := modifiers[tag]; exists {
 			multiplier *= modifier
@@ -65,7 +74,7 @@ func tagMultiplier(modifiers map[string]float64, tags []string) float64 {
 }
 
 func personalityMultiplier(agent Agent, action AdvertisedAction) float64 {
-	multiplier := 1.0
+	multiplier := neutralMultiplier
 	for _, trait := range agent.Personality.Traits {
 		multiplier *= tagMultiplier(trait.Modifiers, action.Tags)
 	}
@@ -76,7 +85,7 @@ func personalityMultiplier(agent Agent, action AdvertisedAction) float64 {
 }
 
 func contextMultiplier(agent Agent, action AdvertisedAction) float64 {
-	multiplier := 1.0
+	multiplier := neutralMultiplier
 	for _, context := range agent.ActiveContexts {
 		contextTagMultiplier := tagMultiplier(context.Modifiers, action.Tags)
 		// This intentional salience boost squares the context multiplier. A
@@ -97,7 +106,7 @@ func distanceMultiplier(agent Agent, provider AffordanceProvider, tuning Tuning)
 }
 
 func weightedCost(agent Agent, action AdvertisedAction) float64 {
-	penalty := 0.0
+	penalty := neutralSum
 	for resourceID, cost := range action.Cost {
 		availableAmount := agent.Resources[resourceID]
 		penalty += cost / math.Max(1, availableAmount/cost)
@@ -108,7 +117,7 @@ func weightedCost(agent Agent, action AdvertisedAction) float64 {
 // ScoreAction scores an advertised promise. Personality, context, and distance scale benefits;
 // costs remain penalties so a cheap action cannot become expensive through a positive modifier.
 func ScoreAction(agent Agent, provider AffordanceProvider, action AdvertisedAction, tuning Tuning) float64 {
-	considerationBenefit := 0.0
+	considerationBenefit := neutralSum
 	defaultResponseCurveExponent := responseCurveExponent(tuning)
 	for considerationID, delta := range action.Deltas {
 		consideration, exists := agent.Considerations[considerationID]
@@ -129,13 +138,6 @@ func ScoreAction(agent Agent, provider AffordanceProvider, action AdvertisedActi
 		contextMultiplier(agent, action)*
 		distanceMultiplier(agent, provider, tuning) -
 		weightedCost(agent, action)
-}
-
-func responseCurveExponent(tuning Tuning) float64 {
-	if tuning.ResponseCurveExponent != 0 {
-		return tuning.ResponseCurveExponent
-	}
-	return 2
 }
 
 // Candidates returns all eligible actions in descending utility order.
@@ -209,7 +211,7 @@ func topCandidates(candidates []Candidate, configuredTopK int) []Candidate {
 
 func sampleSoftmax(candidates []Candidate, temperature float64, rng *rand.Rand) Candidate {
 	maxUtility := candidates[0].Utility
-	totalWeight := 0.0
+	totalWeight := neutralSum
 	weights := make([]float64, len(candidates))
 	for candidateIndex, candidate := range candidates {
 		weights[candidateIndex] = math.Exp((candidate.Utility - maxUtility) / temperature)

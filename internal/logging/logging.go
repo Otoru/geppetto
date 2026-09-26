@@ -12,6 +12,24 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// Log formats accepted by NewLogger. The command-line default, the flag help
+// text, and the encoder switch all reuse these constants so the vocabulary
+// lives in exactly one place.
+const (
+	FormatJSON    = "json"
+	FormatConsole = "console"
+)
+
+// Production sampling defaults, matching zap's production configuration: the
+// first DefaultSampleInitial entries per DefaultSampleInterval per
+// (level, message, caller) pass, then one in DefaultSampleThereafter. This
+// keeps per-batch debug visibility affordable at 50k+ agents per tick.
+const (
+	DefaultSampleInterval   = time.Second
+	DefaultSampleInitial    = 100
+	DefaultSampleThereafter = 100
+)
+
 // LoggerParams groups the dependencies of NewLogger. Tests mount it by hand;
 // no fx.App is required to call the constructor directly.
 type LoggerParams struct {
@@ -32,27 +50,54 @@ func NewLogger(p LoggerParams) (*zap.Logger, error) {
 	if stderr == nil {
 		stderr = os.Stderr
 	}
-	core, err := buildCore(p.Cfg.LogFormat, level, stderr)
+	core, err := buildCore(p.Cfg.LogFormat, level, stderr, samplerConfigFor(p.Cfg))
 	if err != nil {
 		return nil, err
 	}
 	return zap.New(core), nil
 }
 
-func buildCore(format string, level zap.AtomicLevel, stderr io.Writer) (zapcore.Core, error) {
+// samplerConfig holds the resolved parameters of the production sampler.
+type samplerConfig struct {
+	interval   time.Duration
+	initial    int
+	thereafter int
+}
+
+// samplerConfigFor resolves the configured sampler parameters, falling back
+// to the production defaults for zero-value fields so a hand-built Config
+// keeps the default behavior. There is no "disable" value on purpose: the
+// sampler only drops repeated identical entries, and thereafter=1 already
+// lets everything through.
+func samplerConfigFor(cfg *config.Config) samplerConfig {
+	resolved := samplerConfig{
+		interval:   cfg.LogSampleInterval,
+		initial:    cfg.LogSampleInitial,
+		thereafter: cfg.LogSampleThereafter,
+	}
+	if resolved.interval <= 0 {
+		resolved.interval = DefaultSampleInterval
+	}
+	if resolved.initial <= 0 {
+		resolved.initial = DefaultSampleInitial
+	}
+	if resolved.thereafter <= 0 {
+		resolved.thereafter = DefaultSampleThereafter
+	}
+	return resolved
+}
+
+func buildCore(format string, level zap.AtomicLevel, stderr io.Writer, sampler samplerConfig) (zapcore.Core, error) {
 	sink := zapcore.Lock(zapcore.AddSync(stderr))
 	switch format {
-	case "json", "":
+	case FormatJSON, "":
 		encoderConfig := zap.NewProductionEncoderConfig()
 		core := zapcore.NewCore(zapcore.NewJSONEncoder(encoderConfig), sink, level)
-		// Sampling matches the zap production defaults: the first 100 entries
-		// per second per (level, message, caller) pass, then 1 in 100. This
-		// keeps per-batch debug visibility affordable at 50k+ agents per tick.
-		return zapcore.NewSamplerWithOptions(core, time.Second, 100, 100), nil
-	case "console":
+		return zapcore.NewSamplerWithOptions(core, sampler.interval, sampler.initial, sampler.thereafter), nil
+	case FormatConsole:
 		encoderConfig := zap.NewDevelopmentEncoderConfig()
 		return zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), sink, level), nil
 	default:
-		return nil, fmt.Errorf("invalid log format %q (want json or console)", format)
+		return nil, fmt.Errorf("invalid log format %q (want %s or %s)", format, FormatJSON, FormatConsole)
 	}
 }

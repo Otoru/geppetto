@@ -57,3 +57,10 @@ func TestBatchDecide_RejectsMalformedParallelArrays(t *testing.T) {
 	_, err := service.BatchDecide(context.Background(), &gepv1.BatchDecideRequest{ProfileId: "test", AgentIds: []string{"a"}})
 	require.Error(t, err)
 }
+
+// The offset validation messages quote proto field names; deriving them from
+// the generated struct tags must keep producing the wire names.
+func TestOffsetFieldNamesMatchTheProtoContract(t *testing.T) {
+	assert.Equal(t, "action_tag_offsets", actionTagOffsetsFieldName)
+	assert.Equal(t, "action_delta_offsets", actionDeltaOffsetsFieldName)
+}

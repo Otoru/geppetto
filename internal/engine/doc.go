@@ -163,7 +163,9 @@
 //
 // Preemption requires at least one consideration below its configured
 // CriticalThreshold. A player-queued action is protected unless some value
-// has reached the fixed imminent-collapse threshold of -90. The replacement
+// reaches imminent collapse, read from that consideration's own
+// CriticalThreshold; a consideration without one falls back to the engine's
+// IMMINENT_COLLAPSE_THRESHOLD. The replacement
 // is selected through the same stochastic pipeline, and it must strictly
 // exceed preemptionMargin times the current action's frozen
 // ContinuationUtility. Equality does not preempt. This frozen utility is the
@@ -172,10 +174,13 @@
 //
 // Full and simplified simulation levels are represented in the Agent model.
 // ApplyAggregatedEvent records coarse events while an agent is simplified;
-// TransitionToFull currently reconstructs meals that occurred by the target
-// hour, clamps the resulting HUNGER value, discards the event log, and returns
-// the agent to Full. The mechanism is intentionally small and stateless: the
-// game remains responsible for deciding which distant events to aggregate.
+// TransitionToFull applies the profile's AggregatedEventEffects table to the
+// events that occurred by the target hour, clamping each resulting
+// consideration value, then discards the event log and returns the agent to
+// Full. The table is data: the engine knows neither event nor consideration
+// names, and a profile without it reconstructs nothing. The mechanism is
+// intentionally small and stateless: the game remains responsible for
+// deciding which distant events to aggregate.
 //
 // # Batch contention and determinism
 //

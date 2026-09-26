@@ -20,12 +20,17 @@ tmp_dir = "tmp"
   # saidas de build; tmp/ e do proprio air.
   exclude_dir = ["bin", "dist", "tmp", "gen", ".git"]
   exclude_regex = ["_test.go"]
+  # Milliseconds between a file change and the rebuild trigger: 500 ms
+  # coalesces editor save bursts without feeling sluggish. (TOML has no
+  # constants; this comment is the name of the value.)
   delay = 500
   stop_on_error = true
   # O servidor trata SIGINT/SIGTERM com shutdown gracioso (marca NOT_SERVING,
   # GracefulStop e remove o socket), entao pedimos interrupcao em vez de
   # SIGKILL direto.
   send_interrupt = true
+  # Grace period after the interrupt before air escalates to SIGKILL: 3 s
+  # covers the graceful shutdown path above with margin.
   kill_delay = "3s"
 
 [misc]
