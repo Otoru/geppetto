@@ -1,0 +1,16 @@
+{
+  "name": "villager",
+  "considerations": [
+    {
+      "id": "HUNGER",
+      "value": 0,
+      "min": -100,
+      "max": 100,
+      "base_weight": 1,
+      "critical_threshold": -50,
+      "updater": { "kind": "linear_decay", "rate": 5 },
+      "response_curve": { "kind": "convex", "exponent": 2 }
+    }
+  ],
+  "tuning": { "SELECTION_TEMPERATURE": 1 }
+}

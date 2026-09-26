@@ -229,6 +229,15 @@
 // that exhausts its list receives no ActionInstance. Because every cursor only
 // moves forward through a finite retained list, termination is guaranteed.
 //
+// # Stability
+//
+// Within a single version of this module, the same input and the same seed
+// always produce the same result. That guarantee is tested, and it is the
+// whole guarantee. Across versions there is no determinism commitment: the
+// scoring formula and its calibration may change in any minor release, and
+// the same seed may then select a different action. A game that needs
+// deterministic replay or save compatibility must pin the module version.
+//
 // The scoring phase is independent and can run in parallel; the reconciliation
 // phase is a small serial reduction over bounded lists. Map iteration order and
 // worker completion order cannot change the result: each agent appears in one

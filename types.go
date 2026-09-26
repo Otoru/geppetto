@@ -91,8 +91,18 @@ type World struct {
 
 // ConsiderationUpdater defines the dynamics applied to a Consideration.
 type ConsiderationUpdater struct {
-	Kind  UpdaterKind                `json:"kind"`
-	Rate  float64                    `json:"rate,omitempty"`
+	Kind UpdaterKind `json:"kind"`
+	Rate float64     `json:"rate,omitempty"`
+	// Value is an optional in-process extension point for the world-driven
+	// kinds (PerceptionDriven, RelationshipDriven, ContextAggregate). When
+	// set, a tick calls it instead of reading the corresponding World map,
+	// so a game can derive the consideration from state the JSON profile
+	// format cannot express — line of sight, faction standing, inventory
+	// contents — by closing over its own world representation. The function
+	// must be a pure, deterministic function of the supplied agent and
+	// world: it runs inside the simulation tick, and determinism guarantees
+	// assume it. Value is ignored by the linear and event-driven kinds and
+	// cannot be loaded from a profile document.
 	Value func(Agent, World) float64 `json:"-"`
 }
 

@@ -38,4 +38,4 @@ build:
 
 build-all:
 	mkdir -p bin
-	$(foreach platform,$(PLATFORMS),GOOS=$(word 1,$(subst /, ,$(platform))) GOARCH=$(word 2,$(subst /, ,$(platform))) $(GO) build -trimpath -o bin/geppetto-$(subst /,-,$(platform))$(if $(filter windows/%,$(platform)),.exe) ./cmd/geppetto;)
+	$(foreach platform,$(PLATFORMS),GOOS=$(word 1,$(subst /, ,$(platform))) GOARCH=$(word 2,$(subst /, ,$(platform))) $(GO) build -trimpath -ldflags "-X main.Version=$(VERSION)" -o bin/geppetto-$(subst /,-,$(platform))$(if $(filter windows/%,$(platform)),.exe) ./cmd/geppetto;)

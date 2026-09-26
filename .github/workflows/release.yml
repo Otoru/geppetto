@@ -1,0 +1,64 @@
+name: release
+
+on:
+  push:
+    tags:
+      # GitHub tag filters are globs, not regular expressions. The first job
+      # below enforces the exact vX.Y.Z shape before any release work runs.
+      - 'v*'
+
+permissions: {}
+
+jobs:
+  validate-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      valid: ${{ steps.tag.outputs.valid }}
+    steps:
+      - id: tag
+        name: Validate release tag
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo 'valid=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'valid=false' >> "$GITHUB_OUTPUT"
+            echo "Skipping release: ${GITHUB_REF_NAME} is not a vX.Y.Z tag."
+          fi
+
+  release:
+    needs: validate-tag
+    if: needs.validate-tag.outputs.valid == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          # Keep this aligned with CI: go.mod owns the required toolchain.
+          go-version-file: go.mod
+      - name: Test
+        run: go test -race ./...
+      - name: Build release artifacts
+        run: make build-all VERSION="${GITHUB_REF_NAME}"
+      - name: Generate checksums
+        shell: bash
+        run: (cd bin && sha256sum geppetto-* > CHECKSUMS.txt)
+      - name: Publish GitHub release
+        # This cannot be exercised before the repository exists on GitHub.
+        # GitHub-hosted runners provide gh; GH_TOKEN is the scoped workflow token.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" bin/geppetto-* bin/CHECKSUMS.txt --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" bin/geppetto-* bin/CHECKSUMS.txt \
+              --verify-tag \
+              --title "${GITHUB_REF_NAME}" \
+              --generate-notes
+          fi
