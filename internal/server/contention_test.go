@@ -49,7 +49,7 @@ func contendedBedService() *DecisionServer {
 	return NewDecisionServer(NewProfileCache(map[string]engine.Profile{"test": profile}))
 }
 
-func TestBatchDecide_ContendedProviderGoesToNearestAgent(t *testing.T) {
+func TestCA15_ContendedProviderGoesToNearestAgent(t *testing.T) {
 	service := contendedBedService()
 
 	response, err := service.BatchDecide(context.Background(), contendedBedRequest(1))
@@ -61,7 +61,7 @@ func TestBatchDecide_ContendedProviderGoesToNearestAgent(t *testing.T) {
 	assert.Equal(t, "bed", response.ProviderIds[1])
 }
 
-func TestBatchDecide_CapacityTwoAdmitsBothAgents(t *testing.T) {
+func TestCA17_CapacityTwoAdmitsBothAgents(t *testing.T) {
 	service := contendedBedService()
 
 	response, err := service.BatchDecide(context.Background(), contendedBedRequest(2))
@@ -107,7 +107,7 @@ func workbenchRequest() *gepv1.BatchDecideRequest {
 	return request
 }
 
-func TestBatchDecide_ActionCapacityLimitsPerAction(t *testing.T) {
+func TestCA22_ActionCapacityLimitsPerAction(t *testing.T) {
 	service := contendedBedService()
 
 	response, err := service.BatchDecide(context.Background(), workbenchRequest())
@@ -129,7 +129,7 @@ func TestBatchDecide_ActionCapacityLimitsPerAction(t *testing.T) {
 	assert.Equal(t, "saw", response.ActionIds[0], "the nearest agent operates the saw")
 }
 
-func TestBatchDecide_OmittedActionCapacitiesMeansUnlimited(t *testing.T) {
+func TestCA23_OmittedActionCapacitiesMeansUnlimited(t *testing.T) {
 	service := contendedBedService()
 	request := workbenchRequest()
 	request.ActionCapacities = nil // old client: field absent

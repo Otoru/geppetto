@@ -12,7 +12,7 @@ func seededRand(seed uint64) *rand.Rand {
 	return rand.New(rand.NewPCG(seed, seed+1))
 }
 
-func TestRankedPreferencesKeepsStochasticPickFirst(t *testing.T) {
+func TestCA21_KeepsStochasticPickFirst(t *testing.T) {
 	a := testAgent(c("HUNGER", -70), c("FUN", -10))
 	ps := []AffordanceProvider{
 		provider("food", Position{}, action("eat", map[string]float64{"HUNGER": 80})),
@@ -29,7 +29,7 @@ func TestRankedPreferencesKeepsStochasticPickFirst(t *testing.T) {
 	}
 }
 
-func TestRankedPreferencesFallbacksAreUtilityOrderedAndCapped(t *testing.T) {
+func TestCA27_FallbacksAreUtilityOrderedAndCapped(t *testing.T) {
 	a := testAgent(c("HUNGER", -70))
 	ps := []AffordanceProvider{
 		provider("p1", Position{}, action("a1", map[string]float64{"HUNGER": 80})),
@@ -51,7 +51,7 @@ func TestRankedPreferencesFallbacksAreUtilityOrderedAndCapped(t *testing.T) {
 	}
 }
 
-func TestRankedPreferencesDefaultsToConstantWhenTuningIsZero(t *testing.T) {
+func TestCA27_DefaultsToConstantWhenTuningIsZero(t *testing.T) {
 	a := testAgent(c("HUNGER", -70))
 	ps := []AffordanceProvider{
 		provider("p1", Position{}, action("a1", map[string]float64{"HUNGER": 80})),
@@ -65,7 +65,7 @@ func TestRankedPreferencesDefaultsToConstantWhenTuningIsZero(t *testing.T) {
 	assert.NotEmpty(t, ranked)
 }
 
-func TestResolveContention_NearestAgentWinsSingleSlot(t *testing.T) {
+func TestCA15_NearestAgentWinsSingleSlot(t *testing.T) {
 	chair := provider("chair", Position{}, action("sit", map[string]float64{"HUNGER": 20}))
 	near := testAgent(c("HUNGER", -50))
 	near.ID = "near"
@@ -87,7 +87,7 @@ func TestResolveContention_NearestAgentWinsSingleSlot(t *testing.T) {
 	assert.Nil(t, result[1], "the farther agent must lose the single slot")
 }
 
-func TestResolveContention_HungrierButFartherAgentLosesToCloserOne(t *testing.T) {
+func TestCA15_HungrierButFartherAgentLosesToCloserOne(t *testing.T) {
 	food := provider("food", Position{}, action("eat", map[string]float64{"HUNGER": 80}))
 	starving := testAgent(c("HUNGER", -95))
 	starving.ID = "starving"
@@ -114,7 +114,7 @@ func TestResolveContention_HungrierButFartherAgentLosesToCloserOne(t *testing.T)
 	assert.Equal(t, "food", result[1].ProviderID)
 }
 
-func TestResolveContention_LoserFallsBackToNextCandidate(t *testing.T) {
+func TestCA16_LoserFallsBackToNextCandidate(t *testing.T) {
 	chair := provider("chair", Position{}, action("sit", map[string]float64{"HUNGER": 50}))
 	bench := provider("bench", Position{X: 20}, action("sit", map[string]float64{"HUNGER": 10}))
 	near := testAgent(c("HUNGER", -50))
@@ -139,7 +139,7 @@ func TestResolveContention_LoserFallsBackToNextCandidate(t *testing.T) {
 	assert.Equal(t, "bench", result[1].ProviderID)
 }
 
-func TestResolveContention_CapacityGrantsSlotsToNearestAgents(t *testing.T) {
+func TestCA17_CapacityGrantsSlotsToNearestAgents(t *testing.T) {
 	hall := provider("hall", Position{}, action("gather", map[string]float64{"HUNGER": 20}))
 	hall.Capacity = 3
 	providers := []AffordanceProvider{hall}
@@ -162,7 +162,7 @@ func TestResolveContention_CapacityGrantsSlotsToNearestAgents(t *testing.T) {
 	assert.Nil(t, result[4])
 }
 
-func TestResolveContention_OccupantsConsumeSlots(t *testing.T) {
+func TestCA20_OccupantsConsumeSlots(t *testing.T) {
 	chair := provider("chair", Position{}, action("sit", map[string]float64{"HUNGER": 20}))
 	chair.Capacity = 2
 	chair.Occupants = []string{"someone-else"}
@@ -185,7 +185,7 @@ func TestResolveContention_OccupantsConsumeSlots(t *testing.T) {
 	assert.Nil(t, result[1])
 }
 
-func TestResolveContention_CascadesUntilStable(t *testing.T) {
+func TestCA18_CascadesUntilStable(t *testing.T) {
 	chair := provider("chair", Position{}, action("sit", map[string]float64{"HUNGER": 80}))
 	sofa := provider("sofa", Position{}, action("lounge", map[string]float64{"HUNGER": 40}))
 	chairCandidate := Candidate{Action: chair.AdvertisedActions[0], Provider: chair, Utility: 10}
@@ -209,7 +209,7 @@ func TestResolveContention_CascadesUntilStable(t *testing.T) {
 	assert.Nil(t, result[2], "farthest is dislodged from the sofa by the cascade and has no fallback")
 }
 
-func TestResolveContention_DeterministicAcrossRuns(t *testing.T) {
+func TestCA19_DeterministicAcrossRuns(t *testing.T) {
 	food := provider("food", Position{}, action("eat", map[string]float64{"HUNGER": 80}))
 	bed := provider("bed", Position{X: 5}, action("rest", map[string]float64{"HUNGER": 30}))
 	providers := []AffordanceProvider{food, bed}
@@ -239,7 +239,7 @@ func TestResolveContention_DeterministicAcrossRuns(t *testing.T) {
 	}
 }
 
-func TestResolveContention_NeverExceedsProviderSlots(t *testing.T) {
+func TestCA20_NeverExceedsProviderSlots(t *testing.T) {
 	providers := []AffordanceProvider{
 		provider("one", Position{}, action("use1", map[string]float64{"HUNGER": 50})),
 		provider("two", Position{X: 10}, action("use2", map[string]float64{"HUNGER": 40})),

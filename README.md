@@ -120,6 +120,7 @@ O processo publica o endereço de conexão em uma linha JSON no stdout; o client
 
 ## Detalhes técnicos
 
+- [docs/spec.md](docs/spec.md) — a especificação normativa da arquitetura (considerações, anúncios, seleção, arbitragem de disputas, critérios de aceitação CA-1 a CA-27). O geppetto é a implementação de referência.
 - [docs/protocol.md](docs/protocol.md) — contrato de wire: transporte, handshake, schema gRPC, formato do batch e a renomeação `npcai.v1` → `geppetto.v1`.
 - [docs/development.md](docs/development.md) — build, Makefile, hot reload com air, geração de código e CI.
 - [docs/scaling.md](docs/scaling.md) — payload SoA (e o que acontece a 50k agentes se simplificar), benchmarks, níveis de simulação e memória compartilhada.

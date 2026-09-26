@@ -114,13 +114,18 @@ type BatchDecideRequest struct {
 	ActionDeltaOffsets        []uint32  `protobuf:"varint,28,rep,packed,name=action_delta_offsets,json=actionDeltaOffsets,proto3" json:"action_delta_offsets,omitempty"`
 	DeltaConsiderationIds     []string  `protobuf:"bytes,29,rep,name=delta_consideration_ids,json=deltaConsiderationIds,proto3" json:"delta_consideration_ids,omitempty"`
 	DeltaValues               []float64 `protobuf:"fixed64,30,rep,packed,name=delta_values,json=deltaValues,proto3" json:"delta_values,omitempty"`
-	// Per-action capacity, aligned by action index. WARNING: the zero semantics
-	// here differ from provider_capacities ON PURPOSE. proto3 encodes an absent
-	// numeric field as 0 and every pre-existing client sends 0, so 0 means
-	// UNLIMITED — the action imposes no own limit and only the provider
-	// capacity applies. A positive value caps simultaneous agents on this
-	// action; an agent joins only with a free slot at BOTH levels, and the
-	// stricter level wins. An empty array reads as all zeros.
+	// Per-action capacity, aligned by action index.
+	//
+	// WARNING: the zero semantics here differ from provider_capacities ON
+	// PURPOSE. proto3 encodes an absent numeric field as 0, and every client
+	// older than this field sends 0. If 0 blocked the action, every existing
+	// action would break on deploy. Therefore:
+	//   - 0 means UNLIMITED: the action imposes no own limit and only the
+	//     provider capacity applies;
+	//   - a positive value caps simultaneous agents on this action.
+	//
+	// An agent joins only with a free slot at BOTH levels (provider and
+	// action); the stricter level wins. An empty array reads as all zeros.
 	ActionCapacities []uint32 `protobuf:"varint,31,rep,packed,name=action_capacities,json=actionCapacities,proto3" json:"action_capacities,omitempty"`
 	// Per-action occupancy at tick start, aligned by action index: how many
 	// agents are already executing each action. Absent or 0 means none. This

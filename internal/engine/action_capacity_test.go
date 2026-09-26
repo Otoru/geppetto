@@ -33,7 +33,7 @@ func rankedForAll(agents []Agent, providers []AffordanceProvider) [][]Candidate 
 	return preferences
 }
 
-func TestResolveContention_ActionCapacityLimitsPerAction(t *testing.T) {
+func TestCA22_ActionCapacityLimitsPerAction(t *testing.T) {
 	agents, providers := workbench(1, 5)
 	preferences := rankedForAll(agents, providers)
 	for i, preference := range preferences {
@@ -60,7 +60,7 @@ func TestResolveContention_ActionCapacityLimitsPerAction(t *testing.T) {
 	assert.Equal(t, "saw", result[0].Action.ActionID, "the nearest agent operates the saw")
 }
 
-func TestResolveContention_ZeroActionCapacityMeansUnlimited(t *testing.T) {
+func TestCA23_ZeroActionCapacityMeansUnlimited(t *testing.T) {
 	hall := provider("hall", Position{}, action("gather", map[string]float64{"HUNGER": 20}))
 	hall.Capacity = 10
 	// Capacity 0 on the action: proto3 encodes an absent field as 0, so 0 MUST
@@ -84,7 +84,7 @@ func TestResolveContention_ZeroActionCapacityMeansUnlimited(t *testing.T) {
 	}
 }
 
-func TestCandidates_ZeroActionCapacityStaysEligible(t *testing.T) {
+func TestCA23_ZeroActionCapacityStaysEligible(t *testing.T) {
 	a := testAgent(c("HUNGER", -50))
 	uncapped := action("gather", map[string]float64{"HUNGER": 20})
 	uncapped.Capacity = 0
@@ -94,7 +94,7 @@ func TestCandidates_ZeroActionCapacityStaysEligible(t *testing.T) {
 	assert.Len(t, candidates, 1, "capacity 0 must read as unlimited, never as blocked")
 }
 
-func TestResolveContention_StricterLevelWins(t *testing.T) {
+func TestCA24_StricterLevelWins(t *testing.T) {
 	// Action allows 3, provider allows 1: the provider wins.
 	room := provider("room", Position{}, action("perform", map[string]float64{"HUNGER": 20}))
 	room.Capacity = 1
@@ -116,7 +116,7 @@ func TestResolveContention_StricterLevelWins(t *testing.T) {
 	assert.Nil(t, result[2])
 }
 
-func TestCandidates_FullyOccupiedActionIsNotEligible(t *testing.T) {
+func TestCA25_FullyOccupiedActionIsNotEligible(t *testing.T) {
 	a := testAgent(c("HUNGER", -50))
 	saw := action("saw", map[string]float64{"HUNGER": 80})
 	saw.Capacity = 1
@@ -127,7 +127,7 @@ func TestCandidates_FullyOccupiedActionIsNotEligible(t *testing.T) {
 	assert.Empty(t, candidates, "an action at its occupancy limit must not be advertised to this tick")
 }
 
-func TestResolveContention_ActionOccupancyConsumesSlots(t *testing.T) {
+func TestCA25_ActionOccupancyConsumesSlots(t *testing.T) {
 	agents, providers := workbench(2, 2)
 	providers[0].AdvertisedActions[0].Occupancy = 1 // one of the 2 saw slots is already taken
 	preferences := rankedForAll(agents, providers)
@@ -140,7 +140,7 @@ func TestResolveContention_ActionOccupancyConsumesSlots(t *testing.T) {
 	assert.Equal(t, "hammer", result[1].Action.ActionID, "the second agent falls back: saw cap 2 minus 1 occupant leaves 1 slot")
 }
 
-func TestResolveContention_TwoLevelInvariant(t *testing.T) {
+func TestCA26_TwoLevelInvariant(t *testing.T) {
 	for seed := uint64(0); seed < 20; seed++ {
 		bench := provider("bench", Position{},
 			action("saw", map[string]float64{"HUNGER": 80}),
@@ -175,7 +175,7 @@ func TestResolveContention_TwoLevelInvariant(t *testing.T) {
 	}
 }
 
-func TestResolveContention_TwoLevelDeterminism(t *testing.T) {
+func TestCA19_TwoLevelDeterminism(t *testing.T) {
 	run := func() []string {
 		agents, providers := workbench(1, 5)
 		preferences := rankedForAll(agents, providers)
