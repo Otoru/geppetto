@@ -1,5 +1,3 @@
-// Package server adapts the wire-oriented protobuf contract to the engine. It
-// does not retain NPC state between requests or implement engine scoring rules.
 package server
 
 import (

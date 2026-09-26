@@ -5,6 +5,7 @@ go 1.26.4
 require (
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
+	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/fx v1.24.0
 	go.uber.org/multierr v1.10.0

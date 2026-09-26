@@ -1,11 +1,8 @@
-// Package main wires and runs the stateless NPC utility-decision service. It
-// does not contain engine scoring rules or retain NPC state.
 package main
 
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -14,6 +11,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/spf13/pflag"
 	"github.com/vitorhugo/geppetto/internal/config"
 	"github.com/vitorhugo/geppetto/internal/logging"
 	"github.com/vitorhugo/geppetto/internal/server"
@@ -126,22 +124,28 @@ type lifecycleParams struct {
 }
 
 func parseFlags(args []string, stderr io.Writer) (*config.Config, error) {
-	flags := flag.NewFlagSet("geppetto", flag.ContinueOnError)
+	// pflag gives POSIX-style parsing; the flag set below mirrors the previous
+	// stdlib flag set exactly — same names, same defaults, ContinueOnError.
+	flags := pflag.NewFlagSet("geppetto", pflag.ContinueOnError)
 	flags.SetOutput(stderr)
+
 	transportKind := flags.String("transport", "uds", "uds (Unix socket/named pipe) or tcp")
 	port := flags.Int("port", 0, "TCP port; 0 chooses an ephemeral port")
 	socket := flags.String("socket", "", "Unix socket or Windows named pipe path")
 	configDir := flags.String("config-dir", "configs", "profile JSON directory")
 	logFormat := flags.String("log-format", "json", "log format: json (production) or console (development)")
 	logLevel := flags.String("log-level", "info", "log level: debug, info, warn, error")
+
 	if err := flags.Parse(args); err != nil {
 		return nil, err
 	}
+
 	if *socket == "" {
 		if *transportKind == "uds" {
 			*socket = defaultSocket(os.Getpid())
 		}
 	}
+
 	return &config.Config{
 		Transport: *transportKind,
 		Port:      *port,

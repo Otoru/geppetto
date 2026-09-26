@@ -12,7 +12,10 @@ func seededRand(seed uint64) *rand.Rand {
 	return rand.New(rand.NewPCG(seed, seed+1))
 }
 
-func TestCA21_KeepsStochasticPickFirst(t *testing.T) {
+// Arbitration does not become argmax: each agent's first preference is
+// identical to what stochastic selection would produce without arbitration,
+// given the same seed.
+func TestArbitrationKeepsStochasticPickFirst(t *testing.T) {
 	a := testAgent(c("HUNGER", -70), c("FUN", -10))
 	ps := []AffordanceProvider{
 		provider("food", Position{}, action("eat", map[string]float64{"HUNGER": 80})),
@@ -29,7 +32,10 @@ func TestCA21_KeepsStochasticPickFirst(t *testing.T) {
 	}
 }
 
-func TestCA27_FallbacksAreUtilityOrderedAndCapped(t *testing.T) {
+// An agent's retained preference list has at most RECONCILIATION_TOP_K
+// entries — the stochastic pick followed by fallbacks in descending utility
+// order, without repeating the first pick.
+func TestFallbacksAreUtilityOrderedAndCapped(t *testing.T) {
 	a := testAgent(c("HUNGER", -70))
 	ps := []AffordanceProvider{
 		provider("p1", Position{}, action("a1", map[string]float64{"HUNGER": 80})),
@@ -51,7 +57,9 @@ func TestCA27_FallbacksAreUtilityOrderedAndCapped(t *testing.T) {
 	}
 }
 
-func TestCA27_DefaultsToConstantWhenTuningIsZero(t *testing.T) {
+// RECONCILIATION_TOP_K = 0 in the tuning falls back to the default (5) instead
+// of emptying or unlimiting the retained preference list.
+func TestReconciliationTopKDefaultsWhenTuningIsZero(t *testing.T) {
 	a := testAgent(c("HUNGER", -70))
 	ps := []AffordanceProvider{
 		provider("p1", Position{}, action("a1", map[string]float64{"HUNGER": 80})),
@@ -65,7 +73,9 @@ func TestCA27_DefaultsToConstantWhenTuningIsZero(t *testing.T) {
 	assert.NotEmpty(t, ranked)
 }
 
-func TestCA15_NearestAgentWinsSingleSlot(t *testing.T) {
+// Two agents disputing a capacity-1 provider in the same batch: exactly one is
+// assigned, and it is the nearest one.
+func TestNearestAgentWinsSingleSlot(t *testing.T) {
 	chair := provider("chair", Position{}, action("sit", map[string]float64{"HUNGER": 20}))
 	near := testAgent(c("HUNGER", -50))
 	near.ID = "near"
@@ -87,7 +97,13 @@ func TestCA15_NearestAgentWinsSingleSlot(t *testing.T) {
 	assert.Nil(t, result[1], "the farther agent must lose the single slot")
 }
 
-func TestCA15_HungrierButFartherAgentLosesToCloserOne(t *testing.T) {
+// Arbitration is by proximity, not merit: when two agents dispute a
+// capacity-1 provider, the nearest one wins even when the farther one has
+// strictly higher utility (HUNGER -95 far vs. HUNGER -10 near — the starving
+// agent loses). The criterion is physical: whoever is closer takes it; being
+// hungrier makes no one faster. "Highest utility wins" is the intuitive — and
+// wrong — proposal that keeps coming back.
+func TestHungrierButFartherAgentLosesToCloserOne(t *testing.T) {
 	food := provider("food", Position{}, action("eat", map[string]float64{"HUNGER": 80}))
 	starving := testAgent(c("HUNGER", -95))
 	starving.ID = "starving"
@@ -114,7 +130,9 @@ func TestCA15_HungrierButFartherAgentLosesToCloserOne(t *testing.T) {
 	assert.Equal(t, "food", result[1].ProviderID)
 }
 
-func TestCA16_LoserFallsBackToNextCandidate(t *testing.T) {
+// The loser of a dispute receives the next candidate from its own preference
+// list; once the list is exhausted, it leaves with no action.
+func TestLoserFallsBackToNextCandidate(t *testing.T) {
 	chair := provider("chair", Position{}, action("sit", map[string]float64{"HUNGER": 50}))
 	bench := provider("bench", Position{X: 20}, action("sit", map[string]float64{"HUNGER": 10}))
 	near := testAgent(c("HUNGER", -50))
@@ -139,7 +157,9 @@ func TestCA16_LoserFallsBackToNextCandidate(t *testing.T) {
 	assert.Equal(t, "bench", result[1].ProviderID)
 }
 
-func TestCA17_CapacityGrantsSlotsToNearestAgents(t *testing.T) {
+// A provider with N free slots receives exactly the N nearest contenders; the
+// rest fall back to their plan B or leave with no action.
+func TestCapacityGrantsSlotsToNearestAgents(t *testing.T) {
 	hall := provider("hall", Position{}, action("gather", map[string]float64{"HUNGER": 20}))
 	hall.Capacity = 3
 	providers := []AffordanceProvider{hall}
@@ -162,7 +182,10 @@ func TestCA17_CapacityGrantsSlotsToNearestAgents(t *testing.T) {
 	assert.Nil(t, result[4])
 }
 
-func TestCA20_OccupantsConsumeSlots(t *testing.T) {
+// In no result does the count of agents assigned to a provider exceed
+// capacity - |occupants| — including when the client reports partial
+// occupancy.
+func TestOccupantsConsumeSlots(t *testing.T) {
 	chair := provider("chair", Position{}, action("sit", map[string]float64{"HUNGER": 20}))
 	chair.Capacity = 2
 	chair.Occupants = []string{"someone-else"}
@@ -185,7 +208,11 @@ func TestCA20_OccupantsConsumeSlots(t *testing.T) {
 	assert.Nil(t, result[1])
 }
 
-func TestCA18_CascadesUntilStable(t *testing.T) {
+// An agent falling back to its plan B may dislodge a farther agent already
+// placed there; reconciliation iterates until it stabilizes, and the final
+// result respects every slot. An agent whose preference list is exhausted
+// leaves with no action.
+func TestCascadesUntilStable(t *testing.T) {
 	chair := provider("chair", Position{}, action("sit", map[string]float64{"HUNGER": 80}))
 	sofa := provider("sofa", Position{}, action("lounge", map[string]float64{"HUNGER": 40}))
 	chairCandidate := Candidate{Action: chair.AdvertisedActions[0], Provider: chair, Utility: 10}
@@ -209,7 +236,8 @@ func TestCA18_CascadesUntilStable(t *testing.T) {
 	assert.Nil(t, result[2], "farthest is dislodged from the sofa by the cascade and has no fallback")
 }
 
-func TestCA19_DeterministicAcrossRuns(t *testing.T) {
+// The same input and the same seed produce exactly the same assignment.
+func TestContentionResolutionIsDeterministicAcrossRuns(t *testing.T) {
 	food := provider("food", Position{}, action("eat", map[string]float64{"HUNGER": 80}))
 	bed := provider("bed", Position{X: 5}, action("rest", map[string]float64{"HUNGER": 30}))
 	providers := []AffordanceProvider{food, bed}
@@ -239,7 +267,9 @@ func TestCA19_DeterministicAcrossRuns(t *testing.T) {
 	}
 }
 
-func TestCA20_NeverExceedsProviderSlots(t *testing.T) {
+// Random seed sweep: in no result does the count of agents assigned to a
+// provider exceed its free slots.
+func TestNeverExceedsProviderSlots(t *testing.T) {
 	providers := []AffordanceProvider{
 		provider("one", Position{}, action("use1", map[string]float64{"HUNGER": 50})),
 		provider("two", Position{X: 10}, action("use2", map[string]float64{"HUNGER": 40})),

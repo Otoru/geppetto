@@ -32,7 +32,11 @@ func provider(id string, p Position, actions ...AdvertisedAction) AffordanceProv
 	return AffordanceProvider{ID: id, Position: p, Capacity: 1, AdvertisedActions: actions}
 }
 
-func TestCA1_Updaters(t *testing.T) {
+// With no action executed, a linear_decay consideration with decay_rate 10 pts/h
+// goes from +100 to -100 in ~20 h of game time (±10%). Event-driven
+// considerations do not move without events; perception-driven considerations
+// respond to environment changes within 1 tick.
+func TestConsiderationUpdatersDriveValues(t *testing.T) {
 	decay := c("HUNGER", 100)
 	decay.Updater = ConsiderationUpdater{Kind: LinearDecay, Rate: 10}
 	event := c("AMMO", 50)
@@ -66,14 +70,20 @@ func TestContextAggregateUpdaterUsesContextValueWhenNoFunctionIsConfigured(t *te
 	assert.InDelta(t, -30, agent.Considerations["GROUP_MORALE"].Value, 0.0001)
 }
 
-func TestCA2_AffordanceExtensibility(t *testing.T) {
+// Instantiating a new provider advertising {rest: ENERGY +80} in an environment
+// with no previous ENERGY source makes agents with ENERGY below the critical
+// threshold use it, with no change to agent code.
+func TestAffordanceExtensibility(t *testing.T) {
 	a := testAgent(c("ENERGY", -80))
 	chosen := SelectAction(a, []AffordanceProvider{provider("bed", Position{}, action("rest", map[string]float64{"ENERGY": 80}))}, DefaultTuning(), rand.New(rand.NewPCG(1, 2)))
 	require.NotNil(t, chosen)
 	assert.Equal(t, "rest", chosen.Action.ActionID)
 }
 
-func TestCA3_UrgencyDominates(t *testing.T) {
+// An agent with HUNGER = -70 and FUN = -10, facing equidistant food and
+// leisure providers with equivalent deltas, chooses to eat in at least 90% of
+// 200 samples (with default SELECTION_TEMPERATURE).
+func TestUrgencyDominates(t *testing.T) {
 	a := testAgent(c("HUNGER", -70), c("FUN", -10))
 	ps := []AffordanceProvider{provider("food", Position{}, action("eat", map[string]float64{"HUNGER": 80})), provider("fun", Position{}, action("play", map[string]float64{"FUN": 80}))}
 	eat := 0
@@ -85,7 +95,9 @@ func TestCA3_UrgencyDominates(t *testing.T) {
 	assert.GreaterOrEqual(t, eat, 180)
 }
 
-func TestCA4_SaturationCapsExpectedGain(t *testing.T) {
+// An agent with ENERGY = +95 never chooses rest when any other action with
+// utility > 0 is available: saturation caps the expected gain.
+func TestSaturationCapsExpectedGain(t *testing.T) {
 	a := testAgent(c("ENERGY", 95), c("FUN", -80))
 	ps := []AffordanceProvider{provider("bed", Position{}, action("rest", map[string]float64{"ENERGY": 80})), provider("game", Position{}, action("play", map[string]float64{"FUN": 80}))}
 	for i := uint64(0); i < 50; i++ {
@@ -93,7 +105,10 @@ func TestCA4_SaturationCapsExpectedGain(t *testing.T) {
 	}
 }
 
-func TestCA5_PersonalityChangesChoices(t *testing.T) {
+// Two identical agents differing only in preference(book) = +8 vs
+// preference(arena) = +8, with FUN = -50 and both providers available, diverge
+// in their choice in at least 80% of the samples.
+func TestPersonalityChangesChoices(t *testing.T) {
 	base := testAgent(c("FUN", -50))
 	book := base
 	book.Personality.Preferences = map[string]float64{"book": 8}
@@ -111,7 +126,11 @@ func TestCA5_PersonalityChangesChoices(t *testing.T) {
 	assert.GreaterOrEqual(t, different, 80)
 }
 
-func TestCA6_StochasticSelectionIsImperfect(t *testing.T) {
+// In 1,000 decisions with a standout candidate (2x the runner-up's utility),
+// the best option is chosen 60-90% of the time — never 100%
+// (SELECTION_TEMPERATURE > 0 is guaranteed) and never at or below
+// 1/SELECTION_TOP_K (it is not pure randomness).
+func TestStochasticSelectionIsImperfect(t *testing.T) {
 	a := testAgent(Consideration{ID: "X", Value: 0, Min: -100, Max: 100, BaseWeight: 1, ResponseCurve: ResponseCurve{Kind: Linear}})
 	ps := []AffordanceProvider{provider("a", Position{}, action("best", map[string]float64{"X": 4})), provider("b", Position{}, action("second", map[string]float64{"X": 2}))}
 	best := 0
@@ -124,7 +143,9 @@ func TestCA6_StochasticSelectionIsImperfect(t *testing.T) {
 	assert.LessOrEqual(t, best, 900)
 }
 
-func TestCA7_DistanceMultiplier(t *testing.T) {
+// Doubling a provider's distance reduces its utility by the factor predicted
+// by the distance multiplier M_distance, with all other terms held constant.
+func TestDistanceMultiplier(t *testing.T) {
 	a := testAgent(c("HUNGER", -50))
 	x := action("eat", map[string]float64{"HUNGER": 20})
 	near := provider("near", Position{X: 10}, x)
@@ -134,7 +155,11 @@ func TestCA7_DistanceMultiplier(t *testing.T) {
 	assert.InDelta(t, (1.0/(1+2))/(1.0/(1+1)), f/n, 0.0001)
 }
 
-func TestCA8_PreconditionsAreDynamic(t *testing.T) {
+// An action whose preconditions (skill, faction, item, state) are not
+// satisfied never appears among the scored candidates; upon gaining the
+// skill/faction, the advertisement becomes eligible without restarting the
+// agent.
+func TestPreconditionsAreDynamic(t *testing.T) {
 	a := testAgent(c("FUN", -80))
 	locked := action("study", map[string]float64{"FUN": 80})
 	locked.Preconditions = []Precondition{{Capability: "reading"}}
@@ -143,6 +168,8 @@ func TestCA8_PreconditionsAreDynamic(t *testing.T) {
 	assert.Len(t, Candidates(a, []AffordanceProvider{provider("book", Position{}, locked)}, DefaultTuning()), 1)
 }
 
+// Preconditions on the provider's state also gate eligibility: an unloaded
+// weapon does not advertise shoot.
 func TestCandidatesRejectActionWhenProviderStateDoesNotMeetRequiredState(t *testing.T) {
 	agent := testAgent(c("FUN", -80))
 	advertisedAction := action("shoot", map[string]float64{"FUN": 80})
@@ -153,7 +180,10 @@ func TestCandidatesRejectActionWhenProviderStateDoesNotMeetRequiredState(t *test
 	assert.Empty(t, Candidates(agent, []AffordanceProvider{provider}, DefaultTuning()))
 }
 
-func TestCA9_ContextMultipliesExerciseFrequency(t *testing.T) {
+// An agent entering a location with a Context x2.0 modifier on the exercise
+// tag increases the frequency of actions with that tag by at least 2x during
+// the stay, vs. the baseline outside it.
+func TestContextMultipliesExerciseFrequency(t *testing.T) {
 	base := testAgent(c("FUN", -50))
 	contextual := base
 	contextual.ActiveContexts = []Context{{Modifiers: map[string]float64{"exercise": 2}}}
@@ -170,7 +200,13 @@ func TestCA9_ContextMultipliesExerciseFrequency(t *testing.T) {
 	assert.GreaterOrEqual(t, count(contextual), 2*count(base))
 }
 
-func TestCA10_PreemptionAboveMargin(t *testing.T) {
+// An agent executing a leisure action with a consideration crossing the
+// critical_threshold interrupts the action and seeks a provider that addresses
+// it within 1 decision tick. Interruption requires the best available
+// candidate's utility to strictly exceed preemption_margin x the current
+// action's utility — tying the margin does not preempt. Without a critical
+// consideration, the current action is never interrupted.
+func TestPreemptionAboveMargin(t *testing.T) {
 	a := testAgent(c("HUNGER", -60))
 	a.CurrentAction = &ActionInstance{Action: action("leisure", map[string]float64{"HUNGER": 1}), ContinuationUtility: 1}
 	ps := []AffordanceProvider{provider("food", Position{}, action("eat", map[string]float64{"HUNGER": 80}))}
@@ -181,7 +217,10 @@ func TestCA10_PreemptionAboveMargin(t *testing.T) {
 	assert.False(t, CheckPreemption(&a, ps, DefaultTuning(), rand.New(rand.NewPCG(1, 1))))
 }
 
-func TestCA11_LODReconstructionIsPlausible(t *testing.T) {
+// An agent in SIMPLIFIED mode whose aggregated schedule included a "meal" at
+// 12h and returns to FULL mode at 13h reappears with HUNGER >= +30 — a
+// plausible state, not starving.
+func TestLODReconstructionIsPlausible(t *testing.T) {
 	a := testAgent(c("HUNGER", -80))
 	a.SimulationLevel = Simplified
 	ApplyAggregatedEvent(&a, AggregatedEvent{Kind: "meal", AtHour: 12})
@@ -189,14 +228,20 @@ func TestCA11_LODReconstructionIsPlausible(t *testing.T) {
 	assert.GreaterOrEqual(t, a.Considerations["HUNGER"].Value, 30.0)
 }
 
-func TestCA12_NarrativeCommitmentBlocksContradictions(t *testing.T) {
+// During an active NarrativeCommitment (e.g., romance, escort), the agent does
+// not autonomously start actions that contradict it.
+func TestNarrativeCommitmentBlocksContradictions(t *testing.T) {
 	a := testAgent(c("FUN", -80))
 	a.NarrativeCommitments = []NarrativeCommitment{{ID: "escort", ContradictoryTags: map[string]bool{"abandon-escort": true}}}
 	ps := []AffordanceProvider{provider("bar", Position{}, action("leave", map[string]float64{"FUN": 80}, "abandon-escort"))}
 	assert.Nil(t, SelectAction(a, ps, DefaultTuning(), rand.New(rand.NewPCG(1, 2))))
 }
 
-func TestCA13_GenreProfilesUseSameMotor(t *testing.T) {
+// The same engine, with no code changes, runs the four genre configurations by
+// swapping only consideration tables, providers, tags, and parameters. Loads
+// the four real profiles and verifies that each defines its own considerations
+// and tuning.
+func TestGenreProfilesUseSameMotor(t *testing.T) {
 	for _, name := range []string{"social-life", "tactical-stealth", "survival-crafting", "open-world-rpg"} {
 		t.Run(name, func(t *testing.T) {
 			profile, err := LoadProfile("../../configs/" + name + ".json")
@@ -216,7 +261,10 @@ func TestProfilePreservesConsiderationBounds(t *testing.T) {
 	assert.InDelta(t, 100, profile.Considerations[0].Max, 0.0001)
 }
 
-func TestCA14_MixedDeltasRespondToState(t *testing.T) {
+// An action with deltas {+FUN 40, -ENERGY 30} is chosen by a bored, rested
+// agent and avoided by an exhausted, bored agent, in at least 80% of the
+// samples of each case.
+func TestMixedDeltasRespondToState(t *testing.T) {
 	play := action("play", map[string]float64{"FUN": 40, "ENERGY": -30})
 	rest := action("rest", map[string]float64{"ENERGY": 40})
 	ps := []AffordanceProvider{provider("game", Position{}, play), provider("bed", Position{}, rest)}

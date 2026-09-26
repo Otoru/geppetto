@@ -1,6 +1,3 @@
-// Package logging builds the process-wide zap logger. All application logs go
-// to stderr; stdout is reserved for the handshake line the client parses. It
-// does not decide what the application logs.
 package logging
 
 import (

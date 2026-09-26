@@ -1,5 +1,3 @@
-// Package transport creates the process listener selected by the CLI. It does
-// not register gRPC services or manage their lifecycle.
 package transport
 
 import (

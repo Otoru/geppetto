@@ -1,5 +1,3 @@
-// Package config carries runtime settings resolved from CLI flags. It does not
-// parse flags or construct runtime dependencies.
 package config
 
 import "io"

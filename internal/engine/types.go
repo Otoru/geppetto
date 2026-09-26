@@ -1,9 +1,3 @@
-// Package engine contains the deterministic, stateless Utility AI core.
-//
-// It evaluates Consideration values against AdvertisedAction promises. It does
-// not discover world entities, own transport state, or persist NPC state; the
-// caller supplies an Agent and its available AffordanceProviders for each
-// decision.
 package engine
 
 import "math"

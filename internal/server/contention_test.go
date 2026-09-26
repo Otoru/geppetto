@@ -49,7 +49,10 @@ func contendedBedService() *DecisionServer {
 	return NewDecisionServer(NewProfileCache(map[string]engine.Profile{"test": profile}))
 }
 
-func TestCA15_ContendedProviderGoesToNearestAgent(t *testing.T) {
+// End-to-end on the batch request: two agents disputing a capacity-1 provider
+// — exactly one is assigned, the nearest one, and the loser leaves with
+// selected_action_index = -1.
+func TestContendedProviderGoesToNearestAgent(t *testing.T) {
 	service := contendedBedService()
 
 	response, err := service.BatchDecide(context.Background(), contendedBedRequest(1))
@@ -61,7 +64,9 @@ func TestCA15_ContendedProviderGoesToNearestAgent(t *testing.T) {
 	assert.Equal(t, "bed", response.ProviderIds[1])
 }
 
-func TestCA17_CapacityTwoAdmitsBothAgents(t *testing.T) {
+// A provider with 2 free slots admits both contending agents in the batch
+// request.
+func TestCapacityTwoAdmitsBothAgents(t *testing.T) {
 	service := contendedBedService()
 
 	response, err := service.BatchDecide(context.Background(), contendedBedRequest(2))
@@ -107,7 +112,11 @@ func workbenchRequest() *gepv1.BatchDecideRequest {
 	return request
 }
 
-func TestCA22_ActionCapacityLimitsPerAction(t *testing.T) {
+// End-to-end on the batch request: an action with capacity C admits at most C
+// agents per batch, even with free slots on the provider — a workbench with 4
+// slots and a saw with capacity 1 gets exactly 1 agent on the saw and 4 in
+// total.
+func TestActionCapacityLimitsPerAction(t *testing.T) {
 	service := contendedBedService()
 
 	response, err := service.BatchDecide(context.Background(), workbenchRequest())
@@ -129,7 +138,10 @@ func TestCA22_ActionCapacityLimitsPerAction(t *testing.T) {
 	assert.Equal(t, "saw", response.ActionIds[0], "the nearest agent operates the saw")
 }
 
-func TestCA23_OmittedActionCapacitiesMeansUnlimited(t *testing.T) {
+// A request from an old client without the action capacities field reads as
+// unlimited: no action imposes a limit of its own and no candidate is blocked;
+// only the provider's limit applies.
+func TestOmittedActionCapacitiesMeansUnlimited(t *testing.T) {
 	service := contendedBedService()
 	request := workbenchRequest()
 	request.ActionCapacities = nil // old client: field absent

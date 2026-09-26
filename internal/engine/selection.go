@@ -80,9 +80,9 @@ func contextMultiplier(agent Agent, action AdvertisedAction) float64 {
 	for _, context := range agent.ActiveContexts {
 		contextTagMultiplier := tagMultiplier(context.Modifiers, action.Tags)
 		// This intentional salience boost squares the context multiplier. A
-		// literal reading of the spec would apply it once, but that effect was
-		// diluted by softmax and failed CA-9. Do not reduce this to one factor
-		// without re-calibrating the acceptance criterion.
+		// single application is diluted by softmax, so the observable frequency
+		// of tagged actions does not double as intended. Do not reduce this to
+		// one factor without recalibrating the behavior.
 		multiplier *= contextTagMultiplier * contextTagMultiplier
 	}
 	return multiplier

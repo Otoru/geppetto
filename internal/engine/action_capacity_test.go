@@ -33,7 +33,10 @@ func rankedForAll(agents []Agent, providers []AffordanceProvider) [][]Candidate 
 	return preferences
 }
 
-func TestCA22_ActionCapacityLimitsPerAction(t *testing.T) {
+// An action with capacity C admits at most C agents per batch, even with free
+// slots left on the provider: a workbench with 4 slots and a saw with capacity
+// 1 gets exactly 1 agent on the saw and at most 4 in total.
+func TestActionCapacityLimitsPerAction(t *testing.T) {
 	agents, providers := workbench(1, 5)
 	preferences := rankedForAll(agents, providers)
 	for i, preference := range preferences {
@@ -60,7 +63,11 @@ func TestCA22_ActionCapacityLimitsPerAction(t *testing.T) {
 	assert.Equal(t, "saw", result[0].Action.ActionID, "the nearest agent operates the saw")
 }
 
-func TestCA23_ZeroActionCapacityMeansUnlimited(t *testing.T) {
+// An action with capacity 0 imposes no limit of its own and never blocks
+// candidates; only the provider's limit applies. (proto3 encodes an absent
+// field as 0, so 0 must read as "no own limit" — otherwise every existing
+// action would brick.)
+func TestZeroActionCapacityMeansUnlimited(t *testing.T) {
 	hall := provider("hall", Position{}, action("gather", map[string]float64{"HUNGER": 20}))
 	hall.Capacity = 10
 	// Capacity 0 on the action: proto3 encodes an absent field as 0, so 0 MUST
@@ -84,7 +91,9 @@ func TestCA23_ZeroActionCapacityMeansUnlimited(t *testing.T) {
 	}
 }
 
-func TestCA23_ZeroActionCapacityStaysEligible(t *testing.T) {
+// An action with capacity 0 remains eligible among the scored candidates: 0
+// reads as unlimited, never as blocked.
+func TestZeroActionCapacityStaysEligible(t *testing.T) {
 	a := testAgent(c("HUNGER", -50))
 	uncapped := action("gather", map[string]float64{"HUNGER": 20})
 	uncapped.Capacity = 0
@@ -94,7 +103,9 @@ func TestCA23_ZeroActionCapacityStaysEligible(t *testing.T) {
 	assert.Len(t, candidates, 1, "capacity 0 must read as unlimited, never as blocked")
 }
 
-func TestCA24_StricterLevelWins(t *testing.T) {
+// An action with capacity 3 on a provider with capacity 1 admits exactly 1
+// agent: the stricter capacity level wins.
+func TestStricterCapacityLevelWins(t *testing.T) {
 	// Action allows 3, provider allows 1: the provider wins.
 	room := provider("room", Position{}, action("perform", map[string]float64{"HUNGER": 20}))
 	room.Capacity = 1
@@ -116,7 +127,9 @@ func TestCA24_StricterLevelWins(t *testing.T) {
 	assert.Nil(t, result[2])
 }
 
-func TestCA25_FullyOccupiedActionIsNotEligible(t *testing.T) {
+// An action with occupancy equal to its capacity is not eligible to anyone on
+// that tick.
+func TestFullyOccupiedActionIsNotEligible(t *testing.T) {
 	a := testAgent(c("HUNGER", -50))
 	saw := action("saw", map[string]float64{"HUNGER": 80})
 	saw.Capacity = 1
@@ -127,7 +140,9 @@ func TestCA25_FullyOccupiedActionIsNotEligible(t *testing.T) {
 	assert.Empty(t, candidates, "an action at its occupancy limit must not be advertised to this tick")
 }
 
-func TestCA25_ActionOccupancyConsumesSlots(t *testing.T) {
+// Client-reported occupancy consumes action slots before the batch: an action
+// with capacity 2 and occupancy 1 admits only 1 more agent.
+func TestActionOccupancyConsumesSlots(t *testing.T) {
 	agents, providers := workbench(2, 2)
 	providers[0].AdvertisedActions[0].Occupancy = 1 // one of the 2 saw slots is already taken
 	preferences := rankedForAll(agents, providers)
@@ -140,7 +155,10 @@ func TestCA25_ActionOccupancyConsumesSlots(t *testing.T) {
 	assert.Equal(t, "hammer", result[1].Action.ActionID, "the second agent falls back: saw cap 2 minus 1 occupant leaves 1 slot")
 }
 
-func TestCA26_TwoLevelInvariant(t *testing.T) {
+// Random seed sweep: in no result does the per-action count exceed the
+// action's capacity (when > 0), nor the per-provider count exceed the
+// provider's capacity.
+func TestTwoLevelCapacityInvariant(t *testing.T) {
 	for seed := uint64(0); seed < 20; seed++ {
 		bench := provider("bench", Position{},
 			action("saw", map[string]float64{"HUNGER": 80}),
@@ -175,7 +193,9 @@ func TestCA26_TwoLevelInvariant(t *testing.T) {
 	}
 }
 
-func TestCA19_TwoLevelDeterminism(t *testing.T) {
+// The same input and the same seed produce exactly the same assignment,
+// including disputes at both capacity levels (action and provider).
+func TestTwoLevelContentionIsDeterministic(t *testing.T) {
 	run := func() []string {
 		agents, providers := workbench(1, 5)
 		preferences := rankedForAll(agents, providers)
