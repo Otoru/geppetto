@@ -2,6 +2,11 @@ name: ci
 
 on:
   push:
+    # Branches only. A tag is a snapshot of an already-verified main and the
+    # release workflow re-runs the race-enabled tests before publishing, so
+    # running CI on tags duplicates work. Tag builds also lack the branch
+    # context this workflow assumes (detached HEAD, no local branch refs).
+    branches: ['**']
   pull_request:
 
 jobs:
@@ -27,7 +32,12 @@ jobs:
       - name: Buf lint and breaking checks
         run: |
           buf lint
-          buf breaking --against ".git#branch=${{ github.event.repository.default_branch }}"
+          # Compare against the remote-tracking ref of the default branch,
+          # never a local branch: detached checkouts (tags, some
+          # pull_request contexts) may not have one. The explicit fetch
+          # creates the ref instead of assuming checkout did.
+          git fetch --no-tags origin "+refs/heads/${{ github.event.repository.default_branch }}:refs/remotes/origin/${{ github.event.repository.default_branch }}"
+          buf breaking --against ".git#ref=refs/remotes/origin/${{ github.event.repository.default_branch }}"
       - name: Test with race detector
         run: go test -race ./...
       - name: Report Go API compatibility
