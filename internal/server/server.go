@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	npcv1 "github.com/vitorhugo/npcai/gen/go/npcai/v1"
-	"github.com/vitorhugo/npcai/internal/engine"
+	gepv1 "github.com/vitorhugo/geppetto/gen/go/geppetto/v1"
+	"github.com/vitorhugo/geppetto/internal/engine"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -33,7 +33,7 @@ func NewProfileCache(profiles map[string]engine.Profile) *ProfileCache {
 
 // DecisionServer implements the stateless DecisionService RPCs.
 type DecisionServer struct {
-	npcv1.UnimplementedDecisionServiceServer
+	gepv1.UnimplementedDecisionServiceServer
 	profiles *ProfileCache
 	workers  int
 	agents   sync.Pool
@@ -73,7 +73,7 @@ func NewGRPCServer(p GRPCParams) GRPCResult {
 	decision := NewDecisionServer(p.Profiles)
 	decision.log = p.Log
 	grpcServer := grpc.NewServer()
-	npcv1.RegisterDecisionServiceServer(grpcServer, decision)
+	gepv1.RegisterDecisionServiceServer(grpcServer, decision)
 	healthServer := health.NewServer()
 	healthpb.RegisterHealthServer(grpcServer, healthServer)
 	p.Log.Debug("grpc server assembled", zap.Int("workers", decision.workers))
@@ -81,7 +81,7 @@ func NewGRPCServer(p GRPCParams) GRPCResult {
 }
 
 // BatchDecide scores every agent in a homogeneous request batch.
-func (s *DecisionServer) BatchDecide(ctx context.Context, request *npcv1.BatchDecideRequest) (*npcv1.BatchDecideResponse, error) {
+func (s *DecisionServer) BatchDecide(ctx context.Context, request *gepv1.BatchDecideRequest) (*gepv1.BatchDecideResponse, error) {
 	if request == nil {
 		return nil, status.Error(codes.InvalidArgument, "request is required")
 	}
@@ -113,8 +113,8 @@ func (s *DecisionServer) BatchDecide(ctx context.Context, request *npcv1.BatchDe
 	return response, nil
 }
 
-func newBatchResponse(agentCount int) *npcv1.BatchDecideResponse {
-	response := &npcv1.BatchDecideResponse{
+func newBatchResponse(agentCount int) *gepv1.BatchDecideResponse {
+	response := &gepv1.BatchDecideResponse{
 		SelectedActionIndices: make([]int32, agentCount),
 		ActionIds:             make([]string, agentCount),
 		ProviderIds:           make([]string, agentCount),
@@ -126,7 +126,7 @@ func newBatchResponse(agentCount int) *npcv1.BatchDecideResponse {
 	return response
 }
 
-func (s *DecisionServer) decideBatch(ctx context.Context, request *npcv1.BatchDecideRequest, profile engine.Profile, providers []engine.AffordanceProvider, actions []engine.AdvertisedAction, response *npcv1.BatchDecideResponse) {
+func (s *DecisionServer) decideBatch(ctx context.Context, request *gepv1.BatchDecideRequest, profile engine.Profile, providers []engine.AffordanceProvider, actions []engine.AdvertisedAction, response *gepv1.BatchDecideResponse) {
 	jobs := make(chan int)
 	var workers sync.WaitGroup
 	workerCount := min(s.workers, len(request.AgentIds))
@@ -151,7 +151,7 @@ func (s *DecisionServer) decideBatch(ctx context.Context, request *npcv1.BatchDe
 }
 
 // Decide scores exactly one agent through the BatchDecide implementation.
-func (s *DecisionServer) Decide(ctx context.Context, request *npcv1.DecideRequest) (*npcv1.DecideResponse, error) {
+func (s *DecisionServer) Decide(ctx context.Context, request *gepv1.DecideRequest) (*gepv1.DecideResponse, error) {
 	if request == nil || request.Batch == nil {
 		return nil, status.Error(codes.InvalidArgument, "batch is required")
 	}
@@ -162,7 +162,7 @@ func (s *DecisionServer) Decide(ctx context.Context, request *npcv1.DecideReques
 	if err != nil {
 		return nil, err
 	}
-	return &npcv1.DecideResponse{
+	return &gepv1.DecideResponse{
 		SelectedActionIndex: batch.SelectedActionIndices[0],
 		ActionId:            batch.ActionIds[0],
 		ProviderId:          batch.ProviderIds[0],
@@ -170,7 +170,7 @@ func (s *DecisionServer) Decide(ctx context.Context, request *npcv1.DecideReques
 	}, nil
 }
 
-func (s *DecisionServer) decideOne(request *npcv1.BatchDecideRequest, profile engine.Profile, providers []engine.AffordanceProvider, actions []engine.AdvertisedAction, agentIndex int, response *npcv1.BatchDecideResponse) {
+func (s *DecisionServer) decideOne(request *gepv1.BatchDecideRequest, profile engine.Profile, providers []engine.AffordanceProvider, actions []engine.AdvertisedAction, agentIndex int, response *gepv1.BatchDecideResponse) {
 	agent := s.agents.Get().(*engine.Agent)
 	populateAgent(agent, request, profile, agentIndex)
 
@@ -184,7 +184,7 @@ func (s *DecisionServer) decideOne(request *npcv1.BatchDecideRequest, profile en
 	s.agents.Put(agent)
 }
 
-func populateAgent(agent *engine.Agent, request *npcv1.BatchDecideRequest, profile engine.Profile, agentIndex int) {
+func populateAgent(agent *engine.Agent, request *gepv1.BatchDecideRequest, profile engine.Profile, agentIndex int) {
 	agent.ID = request.AgentIds[agentIndex]
 	agent.Position = engine.Position{
 		X: request.PositionsX[agentIndex],
@@ -194,7 +194,7 @@ func populateAgent(agent *engine.Agent, request *npcv1.BatchDecideRequest, profi
 	agent.Considerations = considerationValuesForAgent(request, profile.Considerations, agentIndex)
 }
 
-func considerationValuesForAgent(request *npcv1.BatchDecideRequest, profileConsiderations []engine.Consideration, agentIndex int) map[string]engine.Consideration {
+func considerationValuesForAgent(request *gepv1.BatchDecideRequest, profileConsiderations []engine.Consideration, agentIndex int) map[string]engine.Consideration {
 	considerations := make(map[string]engine.Consideration, len(profileConsiderations))
 	valueOffset := agentIndex * len(profileConsiderations)
 	for considerationOffset, consideration := range profileConsiderations {
@@ -204,7 +204,7 @@ func considerationValuesForAgent(request *npcv1.BatchDecideRequest, profileConsi
 	return considerations
 }
 
-func writeDecision(response *npcv1.BatchDecideResponse, agentIndex int, selected *engine.ActionInstance, actions []engine.AdvertisedAction, providers []engine.AffordanceProvider, actionProviderIndices []uint32) {
+func writeDecision(response *gepv1.BatchDecideResponse, agentIndex int, selected *engine.ActionInstance, actions []engine.AdvertisedAction, providers []engine.AffordanceProvider, actionProviderIndices []uint32) {
 	response.ActionIds[agentIndex] = selected.Action.ActionID
 	response.ProviderIds[agentIndex] = selected.ProviderID
 	response.Utilities[agentIndex] = selected.ContinuationUtility
@@ -221,7 +221,7 @@ func selectedActionIndex(selected *engine.ActionInstance, actions []engine.Adver
 	return -1
 }
 
-func validateAgents(request *npcv1.BatchDecideRequest, considerationCount int) error {
+func validateAgents(request *gepv1.BatchDecideRequest, considerationCount int) error {
 	agentCount := len(request.AgentIds)
 	if agentCount == 0 {
 		return fmt.Errorf("at least one agent is required")
@@ -235,7 +235,7 @@ func validateAgents(request *npcv1.BatchDecideRequest, considerationCount int) e
 	return nil
 }
 
-func decodeProviders(request *npcv1.BatchDecideRequest) ([]engine.AffordanceProvider, []engine.AdvertisedAction, error) {
+func decodeProviders(request *gepv1.BatchDecideRequest) ([]engine.AffordanceProvider, []engine.AdvertisedAction, error) {
 	providerCount := len(request.ProviderIds)
 	if err := validateProviderArrays(request, providerCount); err != nil {
 		return nil, nil, err
@@ -261,14 +261,14 @@ func decodeProviders(request *npcv1.BatchDecideRequest) ([]engine.AffordanceProv
 	return providers, actions, nil
 }
 
-func validateProviderArrays(request *npcv1.BatchDecideRequest, providerCount int) error {
+func validateProviderArrays(request *gepv1.BatchDecideRequest, providerCount int) error {
 	if len(request.ProviderPositionsX) != providerCount || len(request.ProviderPositionsY) != providerCount || len(request.ProviderPositionsZ) != providerCount || len(request.ProviderCapacities) != providerCount {
 		return fmt.Errorf("provider arrays must match provider_ids")
 	}
 	return nil
 }
 
-func decodeActions(request *npcv1.BatchDecideRequest, providers []engine.AffordanceProvider) ([]engine.AdvertisedAction, error) {
+func decodeActions(request *gepv1.BatchDecideRequest, providers []engine.AffordanceProvider) ([]engine.AdvertisedAction, error) {
 	actionCount := len(request.ActionIds)
 	if len(request.ActionProviderIndices) != actionCount || len(request.ActionEstimatedDurations) != actionCount || len(request.ActionDomains) != actionCount || len(request.ActionIntrinsicPriorities) != actionCount || len(request.ActionAdvertisementRadii) != actionCount {
 		return nil, fmt.Errorf("action arrays must match action_ids")
@@ -297,7 +297,7 @@ func decodeActions(request *npcv1.BatchDecideRequest, providers []engine.Afforda
 	return actions, nil
 }
 
-func decodeAction(request *npcv1.BatchDecideRequest, actionIndex int) engine.AdvertisedAction {
+func decodeAction(request *gepv1.BatchDecideRequest, actionIndex int) engine.AdvertisedAction {
 	tagStart, tagEnd := request.ActionTagOffsets[actionIndex], request.ActionTagOffsets[actionIndex+1]
 	deltaStart, deltaEnd := request.ActionDeltaOffsets[actionIndex], request.ActionDeltaOffsets[actionIndex+1]
 	deltas := make(map[string]float64, deltaEnd-deltaStart)

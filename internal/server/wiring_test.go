@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/vitorhugo/npcai/internal/config"
+	"github.com/vitorhugo/geppetto/internal/config"
 	"go.uber.org/zap"
 )
 

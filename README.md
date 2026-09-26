@@ -1,6 +1,6 @@
-# npcai
+# geppetto
 
-`npcai` é um servidor gRPC stateless para decisão de NPCs por Utility AI. Ele é iniciado pelo cliente do jogo como subprocesso: não há autenticação, multi-tenancy, container ou banco de dados. O estado de cada NPC vem no payload; perfis de tuning são carregados uma vez e consultados pelo ID.
+`geppetto` é um servidor gRPC stateless para decisão de NPCs por Utility AI. Ele é iniciado pelo cliente do jogo como subprocesso: não há autenticação, multi-tenancy, container ou banco de dados. O estado de cada NPC vem no payload; perfis de tuning são carregados uma vez e consultados pelo ID.
 
 ## Rodar
 
@@ -9,26 +9,30 @@ Requer Go e [Buf](https://buf.build/docs/installation/).
 ```sh
 make generate
 go test ./...
-go run ./cmd/npcai --config-dir configs
+go run ./cmd/geppetto --config-dir configs
 ```
 
 Por padrão o processo escuta em um socket Unix no macOS/Linux. No Windows, `uds` significa named pipe. Para desenvolvimento TCP use:
 
 ```sh
-go run ./cmd/npcai --transport=tcp --port=0 --config-dir configs
+go run ./cmd/geppetto --transport=tcp --port=0 --config-dir configs
 ```
 
 A primeira e única linha escrita em stdout durante a inicialização é o handshake JSON; logs estruturados vão para stderr:
 
 ```json
-{"transport":"uds","addr":"/tmp/npcai-123.sock","pid":123,"version":"dev"}
+{"transport":"uds","addr":"/tmp/geppetto-123.sock","pid":123,"version":"dev"}
 ```
 
 O cliente deve aguardar essa linha antes de conectar. O serviço registra o health check padrão gRPC (`grpc.health.v1.Health/Check`) e responde `SERVING` depois do handshake. `SIGINT`/`SIGTERM` marca o servidor como não servindo, faz `GracefulStop` e remove o socket Unix.
 
 ## Contrato e desempenho
 
-O schema está em `proto/npcai/v1/decision.proto`; `gen/go/` é exclusivamente gerado por `buf generate`. `BatchDecide` é a rota de produção. `Decide` aceita exatamente um agente para depuração/tuning.
+O schema está em `proto/geppetto/v1/decision.proto`; `gen/go/` é exclusivamente gerado por `buf generate`. `BatchDecide` é a rota de produção. `Decide` aceita exatamente um agente para depuração/tuning.
+
+### Renomeação do serviço gRPC
+
+Esta renomeação muda deliberadamente o serviço na wire de `npcai.v1.DecisionService` para `geppetto.v1.DecisionService`, antes de existir qualquer consumidor. Por isso, `buf breaking --against ".git#branch=main"` acusa esta alteração neste commit; a guarda permanece ativa para mudanças futuras.
 
 O batch usa SoA: `agent_ids`, posições e valores de consideração são arrays paralelos packed. Os valores de consideração usam a ordem declarada no perfil. Provedores e anúncios também são arrays paralelos; os offsets delimitam tags e deltas. Isso evita uma árvore `repeated Agent`, cujo custo de serialização se torna dominante em lotes grandes.
 
@@ -71,7 +75,7 @@ make dev
 
 O `.air.toml` observa arquivos `.go` e `configs/*.json` (perfis são carregados uma única vez no startup, então editar um perfil reinicia o servidor para valer). Ficam fora do watch: `bin/`, `dist/`, `tmp/`, `gen/` (gerado pelo buf, só muda via `make generate`) e `*_test.go`.
 
-**Endereço estável e limitação de reconexão.** Em produção o endereço muda a cada processo (socket por PID ou porta TCP efêmera) e o cliente o descobre pela linha de handshake no stdout. No modo dev o air sobe o servidor com `--socket tmp/npcai-dev.sock`, um caminho fixo: a cada rebuild o novo processo publica o **mesmo** endereço no handshake. O cliente ainda **precisa reconectar** após cada reload — a conexão anterior morre com o processo antigo; o que o endereço estável elimina é a necessidade de redescobrir o endereço (reler o handshake) ou reiniciar o cliente. Se o cliente prefere TCP, a mesma ideia vale com `--transport=tcp --port=<porta fixa>`.
+**Endereço estável e limitação de reconexão.** Em produção o endereço muda a cada processo (socket por PID ou porta TCP efêmera) e o cliente o descobre pela linha de handshake no stdout. No modo dev o air sobe o servidor com `--socket tmp/geppetto-dev.sock`, um caminho fixo: a cada rebuild o novo processo publica o **mesmo** endereço no handshake. O cliente ainda **precisa reconectar** após cada reload — a conexão anterior morre com o processo antigo; o que o endereço estável elimina é a necessidade de redescobrir o endereço (reler o handshake) ou reiniciar o cliente. Se o cliente prefere TCP, a mesma ideia vale com `--transport=tcp --port=<porta fixa>`.
 
 `buf.gen.yaml` contém o ponto explícito para adicionar geração C# ou C++ no futuro; hoje só gera Go. A CI executa geração verificável, `buf lint`, `buf breaking`, testes com `-race`, `golangci-lint` e build.
 

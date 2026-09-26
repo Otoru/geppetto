@@ -42,14 +42,14 @@ func (b *lockedBuffer) String() string {
 // client parses exactly one JSON handshake line, so no log byte may ever reach
 // stdout. It also proves the process shuts down cleanly on SIGTERM.
 func TestBinaryStdoutContainsOnlyTheHandshakeLine(t *testing.T) {
-	binary := filepath.Join(t.TempDir(), "npcai")
+	binary := filepath.Join(t.TempDir(), "geppetto")
 	buildOutput, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput()
 	require.NoError(t, err, string(buildOutput))
 
 	directory := t.TempDir()
 	profile := []byte(`{"name":"test","considerations":[{"id":"ENERGY","value":100,"min":-100,"max":100,"base_weight":1,"critical_threshold":-50,"response_curve":{"kind":"convex","exponent":2}}],"tuning":{"SELECTION_TEMPERATURE":1}}`)
 	require.NoError(t, os.WriteFile(filepath.Join(directory, "test.json"), profile, 0o600))
-	socket := filepath.Join(os.TempDir(), fmt.Sprintf("npcai-stdout-contract-%d.sock", os.Getpid()))
+	socket := filepath.Join(os.TempDir(), fmt.Sprintf("geppetto-stdout-contract-%d.sock", os.Getpid()))
 
 	cmd := exec.Command(binary, "--socket", socket, "--config-dir", directory)
 	var stdout, stderr lockedBuffer

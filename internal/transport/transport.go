@@ -7,7 +7,7 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/vitorhugo/npcai/internal/config"
+	"github.com/vitorhugo/geppetto/internal/config"
 	"go.uber.org/fx"
 	"go.uber.org/zap"
 )

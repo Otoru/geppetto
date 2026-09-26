@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	npcv1 "github.com/vitorhugo/npcai/gen/go/npcai/v1"
-	"github.com/vitorhugo/npcai/internal/engine"
+	gepv1 "github.com/vitorhugo/geppetto/gen/go/geppetto/v1"
+	"github.com/vitorhugo/geppetto/internal/engine"
 )
 
 func TestBatchDecide_SoABatchUsesCachedProfile(t *testing.T) {
@@ -20,7 +20,7 @@ func TestBatchDecide_SoABatchUsesCachedProfile(t *testing.T) {
 		Tuning: engine.DefaultTuning(),
 	}
 	service := NewDecisionServer(NewProfileCache(map[string]engine.Profile{"test": profile}))
-	response, err := service.BatchDecide(context.Background(), &npcv1.BatchDecideRequest{
+	response, err := service.BatchDecide(context.Background(), &gepv1.BatchDecideRequest{
 		ProfileId:                 "test",
 		AgentIds:                  []string{"a", "b"},
 		PositionsX:                []float64{0, 0},
@@ -54,6 +54,6 @@ func TestBatchDecide_SoABatchUsesCachedProfile(t *testing.T) {
 
 func TestBatchDecide_RejectsMalformedParallelArrays(t *testing.T) {
 	service := NewDecisionServer(NewProfileCache(map[string]engine.Profile{"test": {Name: "test"}}))
-	_, err := service.BatchDecide(context.Background(), &npcv1.BatchDecideRequest{ProfileId: "test", AgentIds: []string{"a"}})
+	_, err := service.BatchDecide(context.Background(), &gepv1.BatchDecideRequest{ProfileId: "test", AgentIds: []string{"a"}})
 	require.Error(t, err)
 }

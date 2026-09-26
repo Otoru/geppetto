@@ -14,10 +14,10 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/vitorhugo/npcai/internal/config"
-	"github.com/vitorhugo/npcai/internal/logging"
-	"github.com/vitorhugo/npcai/internal/server"
-	"github.com/vitorhugo/npcai/internal/transport"
+	"github.com/vitorhugo/geppetto/internal/config"
+	"github.com/vitorhugo/geppetto/internal/logging"
+	"github.com/vitorhugo/geppetto/internal/server"
+	"github.com/vitorhugo/geppetto/internal/transport"
 	"go.uber.org/fx"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
@@ -41,7 +41,7 @@ func main() {
 	defer stop()
 	if err := run(ctx, os.Args[1:], os.Stdout, os.Stderr); err != nil {
 		logger, _ := zap.NewProduction()
-		logger.Error("npcai stopped", zap.Error(err))
+		logger.Error("geppetto stopped", zap.Error(err))
 		os.Exit(1)
 	}
 }
@@ -85,7 +85,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 						p.GRPC.Stop()
 						return multierr.Append(err, p.Listener.Cleanup())
 					}
-					p.Log.Info("npcai listening", zap.String("transport", p.Listener.Transport), zap.String("addr", p.Listener.Addr().String()))
+					p.Log.Info("geppetto listening", zap.String("transport", p.Listener.Transport), zap.String("addr", p.Listener.Addr().String()))
 					return nil
 				},
 				OnStop: func(context.Context) error {
@@ -126,7 +126,7 @@ type lifecycleParams struct {
 }
 
 func parseFlags(args []string, stderr io.Writer) (*config.Config, error) {
-	flags := flag.NewFlagSet("npcai", flag.ContinueOnError)
+	flags := flag.NewFlagSet("geppetto", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	transportKind := flags.String("transport", "uds", "uds (Unix socket/named pipe) or tcp")
 	port := flags.Int("port", 0, "TCP port; 0 chooses an ephemeral port")
@@ -154,7 +154,7 @@ func parseFlags(args []string, stderr io.Writer) (*config.Config, error) {
 
 func defaultSocket(pid int) string {
 	if isWindows() {
-		return `\\.\pipe\npcai-` + strconv.Itoa(pid)
+		return `\\.\pipe\geppetto-` + strconv.Itoa(pid)
 	}
-	return filepath.Join(os.TempDir(), fmt.Sprintf("npcai-%d.sock", pid))
+	return filepath.Join(os.TempDir(), fmt.Sprintf("geppetto-%d.sock", pid))
 }

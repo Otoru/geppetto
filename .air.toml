@@ -5,13 +5,13 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-  bin = "./tmp/npcai"
-  cmd = "go build -o ./tmp/npcai ./cmd/npcai"
+  bin = "./tmp/geppetto"
+  cmd = "go build -o ./tmp/geppetto ./cmd/geppetto"
   # Endereco estavel: o socket fica em caminho fixo (nao por PID), entao o
   # cliente so precisa reconectar no mesmo endereco apos cada rebuild.
   # Logs em console/debug para o fluxo de dev; stdout continua so com o
   # handshake JSON.
-  args_bin = ["--socket", "tmp/npcai-dev.sock", "--config-dir", "configs", "--log-format", "console", "--log-level", "debug"]
+  args_bin = ["--socket", "tmp/geppetto-dev.sock", "--config-dir", "configs", "--log-format", "console", "--log-level", "debug"]
   # configs/*.json dispara rebuild de proposito: os perfis sao carregados uma
   # unica vez no startup, entao editar um perfil so faz efeito com restart —
   # que e exatamente o que o air faz aqui.

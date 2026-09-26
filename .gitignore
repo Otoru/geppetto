@@ -1,8 +1,8 @@
 # Binários compilados (cross-compile do `make build-all`)
 /bin/
 /dist/
-/npcai
-/npcai-*
+/geppetto
+/geppetto-*
 
 # Diretório temporário do air (hot reload de dev)
 /tmp/

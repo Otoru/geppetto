@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/vitorhugo/npcai/internal/config"
-	"github.com/vitorhugo/npcai/internal/engine"
+	"github.com/vitorhugo/geppetto/internal/config"
+	"github.com/vitorhugo/geppetto/internal/engine"
 	"go.uber.org/fx"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"

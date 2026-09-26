@@ -42,7 +42,7 @@ func TestRunEmitsHandshakeServesHealthAndCleansUpSocket(t *testing.T) {
 	directory := t.TempDir()
 	profile := []byte(`{"name":"test","considerations":[{"id":"ENERGY","value":100,"min":-100,"max":100,"base_weight":1,"critical_threshold":-50,"response_curve":{"kind":"convex","exponent":2}}],"tuning":{"SELECTION_TEMPERATURE":1}}`)
 	require.NoError(t, os.WriteFile(filepath.Join(directory, "test.json"), profile, 0o600))
-	socket := filepath.Join(os.TempDir(), fmt.Sprintf("npcai-test-%d.sock", os.Getpid()))
+	socket := filepath.Join(os.TempDir(), fmt.Sprintf("geppetto-test-%d.sock", os.Getpid()))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	stdoutReader, stdoutWriter := io.Pipe()
@@ -86,7 +86,7 @@ func TestRunReturnsHandshakeAndCleanupErrors(t *testing.T) {
 	profile := []byte(`{"name":"test","considerations":[{"id":"ENERGY","value":100,"min":-100,"max":100,"base_weight":1,"critical_threshold":-50,"response_curve":{"kind":"convex","exponent":2}}],"tuning":{"SELECTION_TEMPERATURE":1}}`)
 	require.NoError(t, os.WriteFile(filepath.Join(directory, "test.json"), profile, 0o600))
 
-	socket := filepath.Join(os.TempDir(), fmt.Sprintf("npcai-handshake-error-%d.sock", os.Getpid()))
+	socket := filepath.Join(os.TempDir(), fmt.Sprintf("geppetto-handshake-error-%d.sock", os.Getpid()))
 	defer func() { _ = os.RemoveAll(socket) }()
 	err := run(context.Background(), []string{"--socket", socket, "--config-dir", directory}, handshakeFailureWriter{socket: socket}, io.Discard)
 

@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.6
 // 	protoc        (unknown)
-// source: npcai/v1/decision.proto
+// source: geppetto/v1/decision.proto
 
-package npcv1
+package gepv1
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -32,7 +32,7 @@ type Position struct {
 
 func (x *Position) Reset() {
 	*x = Position{}
-	mi := &file_npcai_v1_decision_proto_msgTypes[0]
+	mi := &file_geppetto_v1_decision_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -44,7 +44,7 @@ func (x *Position) String() string {
 func (*Position) ProtoMessage() {}
 
 func (x *Position) ProtoReflect() protoreflect.Message {
-	mi := &file_npcai_v1_decision_proto_msgTypes[0]
+	mi := &file_geppetto_v1_decision_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +57,7 @@ func (x *Position) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Position.ProtoReflect.Descriptor instead.
 func (*Position) Descriptor() ([]byte, []int) {
-	return file_npcai_v1_decision_proto_rawDescGZIP(), []int{0}
+	return file_geppetto_v1_decision_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Position) GetX() float64 {
@@ -81,9 +81,14 @@ func (x *Position) GetZ() float64 {
 	return 0
 }
 
-// Parallel, packed arrays prevent a repeated Agent envelope from dominating
-// serialization costs at large batch sizes. Consideration values use the order
-// declared by the named profile.
+// This is a structure-of-arrays (SoA) payload: parallel packed arrays avoid a
+// repeated Agent envelope dominating serialization and allocation costs. At
+// 50k+ agents per tick, replacing it with one message per agent would make the
+// wire and GC overhead part of the decision budget again.
+//
+// A batch has exactly one profile_id. Its consideration_values use the order
+// declared by that profile, so profiles cannot be mixed in the same batch: a
+// value at a given offset would otherwise have no unambiguous meaning.
 type BatchDecideRequest struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	ProfileId           string                 `protobuf:"bytes,1,opt,name=profile_id,json=profileId,proto3" json:"profile_id,omitempty"`
@@ -116,7 +121,7 @@ type BatchDecideRequest struct {
 
 func (x *BatchDecideRequest) Reset() {
 	*x = BatchDecideRequest{}
-	mi := &file_npcai_v1_decision_proto_msgTypes[1]
+	mi := &file_geppetto_v1_decision_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -128,7 +133,7 @@ func (x *BatchDecideRequest) String() string {
 func (*BatchDecideRequest) ProtoMessage() {}
 
 func (x *BatchDecideRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_npcai_v1_decision_proto_msgTypes[1]
+	mi := &file_geppetto_v1_decision_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -141,7 +146,7 @@ func (x *BatchDecideRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchDecideRequest.ProtoReflect.Descriptor instead.
 func (*BatchDecideRequest) Descriptor() ([]byte, []int) {
-	return file_npcai_v1_decision_proto_rawDescGZIP(), []int{1}
+	return file_geppetto_v1_decision_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *BatchDecideRequest) GetProfileId() string {
@@ -317,7 +322,7 @@ type BatchDecideResponse struct {
 
 func (x *BatchDecideResponse) Reset() {
 	*x = BatchDecideResponse{}
-	mi := &file_npcai_v1_decision_proto_msgTypes[2]
+	mi := &file_geppetto_v1_decision_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -329,7 +334,7 @@ func (x *BatchDecideResponse) String() string {
 func (*BatchDecideResponse) ProtoMessage() {}
 
 func (x *BatchDecideResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_npcai_v1_decision_proto_msgTypes[2]
+	mi := &file_geppetto_v1_decision_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -342,7 +347,7 @@ func (x *BatchDecideResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchDecideResponse.ProtoReflect.Descriptor instead.
 func (*BatchDecideResponse) Descriptor() ([]byte, []int) {
-	return file_npcai_v1_decision_proto_rawDescGZIP(), []int{2}
+	return file_geppetto_v1_decision_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *BatchDecideResponse) GetSelectedActionIndices() []int32 {
@@ -382,7 +387,7 @@ type DecideRequest struct {
 
 func (x *DecideRequest) Reset() {
 	*x = DecideRequest{}
-	mi := &file_npcai_v1_decision_proto_msgTypes[3]
+	mi := &file_geppetto_v1_decision_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -394,7 +399,7 @@ func (x *DecideRequest) String() string {
 func (*DecideRequest) ProtoMessage() {}
 
 func (x *DecideRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_npcai_v1_decision_proto_msgTypes[3]
+	mi := &file_geppetto_v1_decision_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -407,7 +412,7 @@ func (x *DecideRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DecideRequest.ProtoReflect.Descriptor instead.
 func (*DecideRequest) Descriptor() ([]byte, []int) {
-	return file_npcai_v1_decision_proto_rawDescGZIP(), []int{3}
+	return file_geppetto_v1_decision_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *DecideRequest) GetBatch() *BatchDecideRequest {
@@ -429,7 +434,7 @@ type DecideResponse struct {
 
 func (x *DecideResponse) Reset() {
 	*x = DecideResponse{}
-	mi := &file_npcai_v1_decision_proto_msgTypes[4]
+	mi := &file_geppetto_v1_decision_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -441,7 +446,7 @@ func (x *DecideResponse) String() string {
 func (*DecideResponse) ProtoMessage() {}
 
 func (x *DecideResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_npcai_v1_decision_proto_msgTypes[4]
+	mi := &file_geppetto_v1_decision_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -454,7 +459,7 @@ func (x *DecideResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DecideResponse.ProtoReflect.Descriptor instead.
 func (*DecideResponse) Descriptor() ([]byte, []int) {
-	return file_npcai_v1_decision_proto_rawDescGZIP(), []int{4}
+	return file_geppetto_v1_decision_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *DecideResponse) GetSelectedActionIndex() int32 {
@@ -485,11 +490,11 @@ func (x *DecideResponse) GetUtility() float64 {
 	return 0
 }
 
-var File_npcai_v1_decision_proto protoreflect.FileDescriptor
+var File_geppetto_v1_decision_proto protoreflect.FileDescriptor
 
-const file_npcai_v1_decision_proto_rawDesc = "" +
+const file_geppetto_v1_decision_proto_rawDesc = "" +
 	"\n" +
-	"\x17npcai/v1/decision.proto\x12\bnpcai.v1\"4\n" +
+	"\x1ageppetto/v1/decision.proto\x12\vgeppetto.v1\"4\n" +
 	"\bPosition\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x01R\x01x\x12\f\n" +
 	"\x01y\x18\x02 \x01(\x01R\x01y\x12\f\n" +
@@ -530,45 +535,45 @@ const file_npcai_v1_decision_proto_rawDesc = "" +
 	"\n" +
 	"action_ids\x18\x02 \x03(\tR\tactionIds\x12!\n" +
 	"\fprovider_ids\x18\x03 \x03(\tR\vproviderIds\x12 \n" +
-	"\tutilities\x18\x04 \x03(\x01B\x02\x10\x01R\tutilities\"C\n" +
-	"\rDecideRequest\x122\n" +
-	"\x05batch\x18\x01 \x01(\v2\x1c.npcai.v1.BatchDecideRequestR\x05batch\"\x9c\x01\n" +
+	"\tutilities\x18\x04 \x03(\x01B\x02\x10\x01R\tutilities\"F\n" +
+	"\rDecideRequest\x125\n" +
+	"\x05batch\x18\x01 \x01(\v2\x1f.geppetto.v1.BatchDecideRequestR\x05batch\"\x9c\x01\n" +
 	"\x0eDecideResponse\x122\n" +
 	"\x15selected_action_index\x18\x01 \x01(\x11R\x13selectedActionIndex\x12\x1b\n" +
 	"\taction_id\x18\x02 \x01(\tR\bactionId\x12\x1f\n" +
 	"\vprovider_id\x18\x03 \x01(\tR\n" +
 	"providerId\x12\x18\n" +
-	"\autility\x18\x04 \x01(\x01R\autility2\x9a\x01\n" +
-	"\x0fDecisionService\x12J\n" +
-	"\vBatchDecide\x12\x1c.npcai.v1.BatchDecideRequest\x1a\x1d.npcai.v1.BatchDecideResponse\x12;\n" +
-	"\x06Decide\x12\x17.npcai.v1.DecideRequest\x1a\x18.npcai.v1.DecideResponseB2Z0github.com/vitorhugo/npcai/gen/go/npcai/v1;npcv1b\x06proto3"
+	"\autility\x18\x04 \x01(\x01R\autility2\xa6\x01\n" +
+	"\x0fDecisionService\x12P\n" +
+	"\vBatchDecide\x12\x1f.geppetto.v1.BatchDecideRequest\x1a .geppetto.v1.BatchDecideResponse\x12A\n" +
+	"\x06Decide\x12\x1a.geppetto.v1.DecideRequest\x1a\x1b.geppetto.v1.DecideResponseB8Z6github.com/vitorhugo/geppetto/gen/go/geppetto/v1;gepv1b\x06proto3"
 
 var (
-	file_npcai_v1_decision_proto_rawDescOnce sync.Once
-	file_npcai_v1_decision_proto_rawDescData []byte
+	file_geppetto_v1_decision_proto_rawDescOnce sync.Once
+	file_geppetto_v1_decision_proto_rawDescData []byte
 )
 
-func file_npcai_v1_decision_proto_rawDescGZIP() []byte {
-	file_npcai_v1_decision_proto_rawDescOnce.Do(func() {
-		file_npcai_v1_decision_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_npcai_v1_decision_proto_rawDesc), len(file_npcai_v1_decision_proto_rawDesc)))
+func file_geppetto_v1_decision_proto_rawDescGZIP() []byte {
+	file_geppetto_v1_decision_proto_rawDescOnce.Do(func() {
+		file_geppetto_v1_decision_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_geppetto_v1_decision_proto_rawDesc), len(file_geppetto_v1_decision_proto_rawDesc)))
 	})
-	return file_npcai_v1_decision_proto_rawDescData
+	return file_geppetto_v1_decision_proto_rawDescData
 }
 
-var file_npcai_v1_decision_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_npcai_v1_decision_proto_goTypes = []any{
-	(*Position)(nil),            // 0: npcai.v1.Position
-	(*BatchDecideRequest)(nil),  // 1: npcai.v1.BatchDecideRequest
-	(*BatchDecideResponse)(nil), // 2: npcai.v1.BatchDecideResponse
-	(*DecideRequest)(nil),       // 3: npcai.v1.DecideRequest
-	(*DecideResponse)(nil),      // 4: npcai.v1.DecideResponse
+var file_geppetto_v1_decision_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_geppetto_v1_decision_proto_goTypes = []any{
+	(*Position)(nil),            // 0: geppetto.v1.Position
+	(*BatchDecideRequest)(nil),  // 1: geppetto.v1.BatchDecideRequest
+	(*BatchDecideResponse)(nil), // 2: geppetto.v1.BatchDecideResponse
+	(*DecideRequest)(nil),       // 3: geppetto.v1.DecideRequest
+	(*DecideResponse)(nil),      // 4: geppetto.v1.DecideResponse
 }
-var file_npcai_v1_decision_proto_depIdxs = []int32{
-	1, // 0: npcai.v1.DecideRequest.batch:type_name -> npcai.v1.BatchDecideRequest
-	1, // 1: npcai.v1.DecisionService.BatchDecide:input_type -> npcai.v1.BatchDecideRequest
-	3, // 2: npcai.v1.DecisionService.Decide:input_type -> npcai.v1.DecideRequest
-	2, // 3: npcai.v1.DecisionService.BatchDecide:output_type -> npcai.v1.BatchDecideResponse
-	4, // 4: npcai.v1.DecisionService.Decide:output_type -> npcai.v1.DecideResponse
+var file_geppetto_v1_decision_proto_depIdxs = []int32{
+	1, // 0: geppetto.v1.DecideRequest.batch:type_name -> geppetto.v1.BatchDecideRequest
+	1, // 1: geppetto.v1.DecisionService.BatchDecide:input_type -> geppetto.v1.BatchDecideRequest
+	3, // 2: geppetto.v1.DecisionService.Decide:input_type -> geppetto.v1.DecideRequest
+	2, // 3: geppetto.v1.DecisionService.BatchDecide:output_type -> geppetto.v1.BatchDecideResponse
+	4, // 4: geppetto.v1.DecisionService.Decide:output_type -> geppetto.v1.DecideResponse
 	3, // [3:5] is the sub-list for method output_type
 	1, // [1:3] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -576,26 +581,26 @@ var file_npcai_v1_decision_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_npcai_v1_decision_proto_init() }
-func file_npcai_v1_decision_proto_init() {
-	if File_npcai_v1_decision_proto != nil {
+func init() { file_geppetto_v1_decision_proto_init() }
+func file_geppetto_v1_decision_proto_init() {
+	if File_geppetto_v1_decision_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_npcai_v1_decision_proto_rawDesc), len(file_npcai_v1_decision_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_geppetto_v1_decision_proto_rawDesc), len(file_geppetto_v1_decision_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_npcai_v1_decision_proto_goTypes,
-		DependencyIndexes: file_npcai_v1_decision_proto_depIdxs,
-		MessageInfos:      file_npcai_v1_decision_proto_msgTypes,
+		GoTypes:           file_geppetto_v1_decision_proto_goTypes,
+		DependencyIndexes: file_geppetto_v1_decision_proto_depIdxs,
+		MessageInfos:      file_geppetto_v1_decision_proto_msgTypes,
 	}.Build()
-	File_npcai_v1_decision_proto = out.File
-	file_npcai_v1_decision_proto_goTypes = nil
-	file_npcai_v1_decision_proto_depIdxs = nil
+	File_geppetto_v1_decision_proto = out.File
+	file_geppetto_v1_decision_proto_goTypes = nil
+	file_geppetto_v1_decision_proto_depIdxs = nil
 }

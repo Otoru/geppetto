@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package npcai.v1;
+package geppetto.v1;
 
-option go_package = "github.com/vitorhugo/npcai/gen/go/npcai/v1;npcv1";
+option go_package = "github.com/vitorhugo/geppetto/gen/go/geppetto/v1;gepv1";
 
 // DecisionService is stateless: every decision carries the agent state needed
 // for scoring. BatchDecide is the production path; Decide is useful for tuning.

@@ -26,10 +26,10 @@ bench:
 
 build:
 	mkdir -p bin
-	$(GO) build -trimpath -ldflags "-X main.Version=$$(git describe --always --dirty 2>/dev/null || echo dev)" -o bin/npcai ./cmd/npcai
+	$(GO) build -trimpath -ldflags "-X main.Version=$$(git describe --always --dirty 2>/dev/null || echo dev)" -o bin/geppetto ./cmd/geppetto
 
 build-all:
 	mkdir -p bin
-	GOOS=linux GOARCH=amd64 $(GO) build -trimpath -o bin/npcai-linux-amd64 ./cmd/npcai
-	GOOS=darwin GOARCH=arm64 $(GO) build -trimpath -o bin/npcai-darwin-arm64 ./cmd/npcai
-	GOOS=windows GOARCH=amd64 $(GO) build -trimpath -o bin/npcai-windows-amd64.exe ./cmd/npcai
+	GOOS=linux GOARCH=amd64 $(GO) build -trimpath -o bin/geppetto-linux-amd64 ./cmd/geppetto
+	GOOS=darwin GOARCH=arm64 $(GO) build -trimpath -o bin/geppetto-darwin-arm64 ./cmd/geppetto
+	GOOS=windows GOARCH=amd64 $(GO) build -trimpath -o bin/geppetto-windows-amd64.exe ./cmd/geppetto

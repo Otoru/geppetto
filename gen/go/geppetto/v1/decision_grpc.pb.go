@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: npcai/v1/decision.proto
+// source: geppetto/v1/decision.proto
 
-package npcv1
+package gepv1
 
 import (
 	context "context"
@@ -19,8 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	DecisionService_BatchDecide_FullMethodName = "/npcai.v1.DecisionService/BatchDecide"
-	DecisionService_Decide_FullMethodName      = "/npcai.v1.DecisionService/Decide"
+	DecisionService_BatchDecide_FullMethodName = "/geppetto.v1.DecisionService/BatchDecide"
+	DecisionService_Decide_FullMethodName      = "/geppetto.v1.DecisionService/Decide"
 )
 
 // DecisionServiceClient is the client API for DecisionService service.
@@ -148,7 +148,7 @@ func _DecisionService_Decide_Handler(srv interface{}, ctx context.Context, dec f
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var DecisionService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "npcai.v1.DecisionService",
+	ServiceName: "geppetto.v1.DecisionService",
 	HandlerType: (*DecisionServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -161,5 +161,5 @@ var DecisionService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "npcai/v1/decision.proto",
+	Metadata: "geppetto/v1/decision.proto",
 }

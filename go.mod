@@ -1,4 +1,4 @@
-module github.com/vitorhugo/npcai
+module github.com/vitorhugo/geppetto
 
 go 1.26.4
 
